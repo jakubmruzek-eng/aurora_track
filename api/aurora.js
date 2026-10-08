@@ -1,92 +1,74 @@
-const https = require('https');
+export default async function handler(req, res) {
+    // 1. Povolení CORS pro všechny domény (GitHub Pages, localhost)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-function getData(url) {
-    return new Promise((resolve) => {
-        const req = https.get(url, { 
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-            timeout: 8000
-        }, (res) => {
-            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                return getData(res.headers.location).then(resolve);
-            }
-            if (res.statusCode !== 200) return resolve(null);
+    // 2. Absolutní zákaz kešování na úrovni Vercel Edge i prohlížeče
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
-            let rawData = '';
-            res.on('data', chunk => rawData += chunk);
-            res.on('end', () => {
-                try { resolve(JSON.parse(rawData)); } catch (e) { resolve(null); }
-            });
-        });
-        req.on('error', () => resolve(null));
-        req.on('timeout', () => { req.destroy(); resolve(null); });
-    });
-}
+    // Ošetření CORS preflight dotazu
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
-function parseValidNumber(val) {
-    if (val === null || val === undefined) return null;
-    const num = parseFloat(val);
-    if (isNaN(num) || num <= -900) return null;
-    return num;
-}
-
-module.exports = async function handler(req, res) {
     try {
-        const [magData, windData, kpData] = await Promise.all([
-            getData('https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'),
-            getData('https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'),
-            getData('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')
+        // Načtení živých dat z NOAA SWPC (Mag & Solar Wind)
+        const [magRes, plasmaRes, kpRes] = await Promise.all([
+            fetch('https://services.swpc.noaa.gov/products/summary/10-minute-normal-mag.json', { cache: 'no-store' }),
+            fetch('https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json', { cache: 'no-store' }),
+            fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', { cache: 'no-store' })
         ]);
 
-        let bz = 0;
-        let speed = 0;
-        let density = 0;
-        let kp = '2.0';
+        let bzVal = 0;
+        let speedVal = 0;
+        let densityVal = 0;
+        let kpVal = "0.0";
 
-        // 1. Bz z rtsw_mag_1m.json (seřazeno podle time_tag od nejnovějšího)
-        if (Array.isArray(magData) && magData.length > 0) {
-            const sortedMag = magData.slice().sort((a, b) => new Date(b.time_tag) - new Date(a.time_tag));
-            for (const item of sortedMag) {
-                const parsedBz = parseValidNumber(item?.bz_gsm);
-                if (parsedBz !== null) {
-                    bz = parsedBz;
-                    break;
-                }
+        // Parsování Bz
+        if (magRes.ok) {
+            const magData = await magRes.json();
+            if (magData && magData.Bz !== undefined) {
+                bzVal = parseFloat(magData.Bz);
             }
         }
 
-        // 2. Rychlost a Hustota z rtsw_wind_1m.json
-        if (Array.isArray(windData) && windData.length > 0) {
-            const sortedWind = windData.slice().sort((a, b) => new Date(b.time_tag) - new Date(a.time_tag));
-            for (const item of sortedWind) {
-                if (speed === 0) {
-                    const s = parseValidNumber(item?.proton_speed);
-                    if (s !== null && s > 0) speed = s;
-                }
-                if (density === 0) {
-                    const d = parseValidNumber(item?.proton_density);
-                    if (d !== null && d > 0) density = d;
-                }
-                if (speed > 0 && density > 0) break;
+        // Parsování Rychlosti a Hustoty
+        if (plasmaRes.ok) {
+            const plasmaData = await plasmaRes.json();
+            if (plasmaData) {
+                if (plasmaData.WindSpeed !== undefined) speedVal = parseFloat(plasmaData.WindSpeed);
+                if (plasmaData.Density !== undefined) densityVal = parseFloat(plasmaData.Density);
             }
         }
 
-        // 3. Kp index z noaa-planetary-k-index.json (2D pole: [ ["time_tag", "kp", ...], ... ])
-        if (Array.isArray(kpData) && kpData.length > 1) {
-            for (let i = kpData.length - 1; i >= 1; i--) {
-                const row = kpData[i];
-                const parsedKp = parseValidNumber(row[1]);
-                if (parsedKp !== null) {
-                    kp = parsedKp.toFixed(1);
-                    break;
-                }
+        // Parsování Kp Indexu
+        if (kpRes.ok) {
+            const kpData = await kpRes.json();
+            if (Array.isArray(kpData) && kpData.length > 0) {
+                const lastEntry = kpData[kpData.length - 1];
+                kpVal = String(lastEntry[1] || "0.0");
             }
         }
 
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate');
+        // Vrácení živého JSONu
+        return res.status(200).json({
+            bz: bzVal,
+            speed: speedVal,
+            density: densityVal,
+            kp: kpVal
+        });
 
-        return res.status(200).json({ bz, speed, density, kp });
     } catch (error) {
-        return res.status(500).json({ error: 'Failed to parse NOAA data', details: error.message });
+        console.error("Chyba při načítání NOAA dat:", error);
+        return res.status(500).json({ 
+            error: 'Failed to fetch aurora data',
+            bz: 0,
+            speed: 0,
+            density: 0,
+            kp: "0.0"
+        });
     }
-};
+}
