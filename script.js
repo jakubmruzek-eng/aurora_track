@@ -1,61 +1,74 @@
 const REFRESH_INTERVAL = 60000;
 
+// Přepínání záložek v menu
 function showSection(e, sectionId) {
-    if (e) e.preventDefault();
+    if (e && e.preventDefault) {
+        e.preventDefault();
+    }
 
+    // Skrytí všech sekcí
     document.querySelectorAll('.page-section').forEach(sec => {
         sec.classList.remove('active');
         sec.style.display = 'none';
     });
 
+    // Odstranění aktivity z menu
     document.querySelectorAll('.nav-links li').forEach(li => {
         li.classList.remove('active');
     });
 
+    // Zobrazení vybrané sekce
     const activeSec = document.getElementById(sectionId);
     if (activeSec) {
         activeSec.classList.add('active');
         activeSec.style.display = 'flex';
     }
 
+    // Zvýraznění aktivní položky v menu
     const activeNavLi = document.getElementById(`nav-${sectionId}`);
     if (activeNavLi) {
         activeNavLi.classList.add('active');
     }
 }
 
+// Hlavní funkce pro načtení živých dat z NOAA
 async function fetchAuroraData() {
     try {
-        // Volání Vercel serverless funkce na vašem backendu
-        const response = await fetch('/api/aurora');
-        if (response.ok) {
-            const data = await response.json();
-            
-            // Aktualizace UI s daty z vaší funkce
-            updateAuroraUI({
-                bz: data.bz,
-                speed: data.speed,
-                density: data.density,
-                kp: data.kp
-            });
+        const [magRes, plasmaRes, kpRes] = await Promise.all([
+            fetch('https://services.swpc.noaa.gov/products/solar-wind/mag-1-minute.json'),
+            fetch('https://services.swpc.noaa.gov/products/solar-wind/plasma-1-minute.json'),
+            fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')
+        ]);
 
-            // Uložení predikce, pokud ji vaše API vrací
-            if (data.forecast) {
-                window.auroraForecast = data.forecast;
-            }
+        if (magRes.ok && plasmaRes.ok && kpRes.ok) {
+            const magData = await magRes.json();
+            const plasmaData = await plasmaRes.json();
+            const kpData = await kpRes.json();
+
+            const latestMag = magData.length > 1 ? magData[magData.length - 1] : null;
+            const latestPlasma = plasmaData.length > 1 ? plasmaData[plasmaData.length - 1] : null;
+            const latestKp = kpData.length > 1 ? kpData[kpData.length - 1] : null;
+
+            const bz = latestMag && !isNaN(parseFloat(latestMag[3])) ? parseFloat(latestMag[3]) : 0;
+            const speed = latestPlasma && !isNaN(parseFloat(latestPlasma[2])) ? parseFloat(latestPlasma[2]) : 0;
+            const density = latestPlasma && !isNaN(parseFloat(latestPlasma[1])) ? parseFloat(latestPlasma[1]) : 0;
+            const kp = latestKp && latestKp[1] !== undefined ? parseFloat(latestKp[1]).toFixed(1) : '0.0';
+
+            updateAuroraUI({ bz, speed, density, kp });
         } else {
-            throw new Error('API response not ok');
+            throw new Error('NOAA API neodpovídá');
         }
     } catch (e) {
-        console.warn('Nepodařilo se načíst reálná data, použijí se záložní hodnoty', e);
-        updateAuroraUI({ bz: -2.1, speed: 430, density: 4.5, kp: '3.0' });
+        console.warn('Chyba při načítání dat z NOAA:', e);
+        // Pokud načtení selže, zobrazíme mírný stav místo zaseknutého "Connecting..."
+        updateAuroraUI({ bz: -1.0, speed: 380, density: 2.0, kp: '2.0' });
     }
 
     initLocationAndWeather();
     updateMoonPhase();
 
+    // Aktualizace obrázků s cache busterem
     const timestamp = Date.now();
-
     const mapImg = document.getElementById('ovalMap');
     if (mapImg) mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${timestamp}`;
 
@@ -106,13 +119,20 @@ async function fetchWeatherAndLocation(lat, lon, customName = null) {
             const clouds = data.current.cloud_cover;
             const wind = data.current.wind_speed_10m;
 
-            document.getElementById('weatherInfo').innerHTML = `📍 ${locationName} | 🌡️ ${temp}°C | ☁️ ${clouds}% clouds | 💨 ${wind} km/h`;
+            const weatherEl = document.getElementById('weatherInfo');
+            if (weatherEl) weatherEl.innerHTML = `📍 ${locationName} | 🌡️ ${temp}°C | ☁️ ${clouds}% clouds | 💨 ${wind} km/h`;
             
-            document.getElementById('tempVal').innerText = `${temp} °C`;
-            document.getElementById('cloudVal').innerText = `${clouds} %`;
-            document.getElementById('dewVal').innerText = `${(temp - 2).toFixed(1)} °C`;
+            const tempEl = document.getElementById('tempVal');
+            if (tempEl) tempEl.innerText = `${temp} °C`;
             
-            document.getElementById('yrLocationTitle').innerText = `Hourly forecast for ${locationName}`;
+            const cloudEl = document.getElementById('cloudVal');
+            if (cloudEl) cloudEl.innerText = `${clouds} %`;
+
+            const dewEl = document.getElementById('dewVal');
+            if (dewEl) dewEl.innerText = `${(temp - 2).toFixed(1)} °C`;
+            
+            const yrTitleEl = document.getElementById('yrLocationTitle');
+            if (yrTitleEl) yrTitleEl.innerText = `Hourly forecast for ${locationName}`;
 
             if (data.hourly && data.hourly.time) {
                 renderHourlyWeather(data.hourly.time, data.hourly.cloud_cover, data.hourly.temperature_2m, data.hourly.wind_speed_10m);
@@ -197,18 +217,26 @@ function updateMoonPhase() {
 function updateAuroraUI({ bz, speed, density, kp }) {
     const formattedBz = (bz > 0 ? '+' : '') + Number(bz).toFixed(1);
 
-    document.getElementById('bzVal').innerText = `${formattedBz} nT`;
-    document.getElementById('speedVal').innerText = `${Math.round(speed)} km/s`;
-    document.getElementById('densityVal').innerText = `${Number(density).toFixed(1)} p/cm³`;
-    document.getElementById('kpVal').innerText = `${kp}`;
+    const bzEl = document.getElementById('bzVal');
+    if (bzEl) bzEl.innerText = `${formattedBz} nT`;
+    
+    const speedEl = document.getElementById('speedVal');
+    if (speedEl) speedEl.innerText = `${Math.round(speed)} km/s`;
+    
+    const densityEl = document.getElementById('densityVal');
+    if (densityEl) densityEl.innerText = `${Number(density).toFixed(1)} p/cm³`;
+    
+    const kpEl = document.getElementById('kpVal');
+    if (kpEl) kpEl.innerText = `${kp}`;
 
     const statusCard = document.getElementById('statusCard');
     const levelEl = document.getElementById('activityLevel');
     const descEl = document.getElementById('activityDesc');
 
+    if (!statusCard || !levelEl || !descEl) return;
+
     statusCard.className = 'status-card';
 
-    // Výpočet váženého skóre pro aktivitu
     let score = 0;
 
     if (bz <= -10) score += 40;
@@ -247,10 +275,13 @@ function updateAuroraUI({ bz, speed, density, kp }) {
         descEl.innerText = "Geomagnetic field is quiet. Wait for solar wind speed or Bz to drop negative.";
     }
 
-    document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
+    const lastUpdateEl = document.getElementById('lastUpdate');
+    if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
 }
 
+// Inicializace po načtení DOMu
 document.addEventListener("DOMContentLoaded", () => {
+    // Smažeme případnou starou složku /api z hlavy
     fetchAuroraData();
 });
 
