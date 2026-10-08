@@ -22,11 +22,10 @@ function getData(url) {
     });
 }
 
-// Pomocná funkce pro bezpečné převedení hodnoty na platné číslo
 function parseValidNumber(val) {
     if (val === null || val === undefined) return null;
     const num = parseFloat(val);
-    if (isNaN(num) || num <= -900) return null; // Filtruje NOAA chybové kódy jako -999.0
+    if (isNaN(num) || num <= -900) return null; // Odfiltruje NOAA -999 chybové hodnoty
     return num;
 }
 
@@ -43,11 +42,10 @@ module.exports = async function handler(req, res) {
         let density = 0;
         let kp = '2.0';
 
-        // 1. Získání Bz z rtsw_mag_1m.json
+        // 1. Bz z rtsw_mag_1m.json (klíč: bz_gsm)
         if (Array.isArray(magData)) {
             for (let i = magData.length - 1; i >= 0; i--) {
-                const item = magData[i];
-                const parsedBz = parseValidNumber(item.bz_gsm !== undefined ? item.bz_gsm : item.bz);
+                const parsedBz = parseValidNumber(magData[i]?.bz_gsm);
                 if (parsedBz !== null) {
                     bz = parsedBz;
                     break;
@@ -55,36 +53,29 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // 2. Získání Rychlosti a Hustoty z rtsw_wind_1m.json
+        // 2. Speed a Density z rtsw_wind_1m.json (klíče: proton_speed, proton_density)
         if (Array.isArray(windData)) {
             for (let i = windData.length - 1; i >= 0; i--) {
                 const item = windData[i];
-                
-                // Rychlost bývá v rtsw_wind označená jako 'spf', 'prop_speed' nebo 'speed'
+
                 if (speed === 0) {
-                    const parsedSpeed = parseValidNumber(item.spf ?? item.prop_speed ?? item.speed);
-                    if (parsedSpeed !== null && parsedSpeed > 0) {
-                        speed = parsedSpeed;
-                    }
+                    const parsedSpeed = parseValidNumber(item?.proton_speed);
+                    if (parsedSpeed !== null && parsedSpeed > 0) speed = parsedSpeed;
                 }
 
-                // Hustota bývá označená jako 'density' nebo 'n'
                 if (density === 0) {
-                    const parsedDensity = parseValidNumber(item.density ?? item.n);
-                    if (parsedDensity !== null && parsedDensity > 0) {
-                        density = parsedDensity;
-                    }
+                    const parsedDensity = parseValidNumber(item?.proton_density);
+                    if (parsedDensity !== null && parsedDensity > 0) density = parsedDensity;
                 }
 
                 if (speed > 0 && density > 0) break;
             }
         }
 
-        // 3. Získání Kp indexu
+        // 3. Kp index z planetary_k_index_1m.json (klíč: kp_index)
         if (Array.isArray(kpData)) {
             for (let i = kpData.length - 1; i >= 0; i--) {
-                const item = kpData[i];
-                const parsedKp = parseValidNumber(item.kp_index !== undefined ? item.kp_index : (Array.isArray(item) ? item[1] : null));
+                const parsedKp = parseValidNumber(kpData[i]?.kp_index);
                 if (parsedKp !== null) {
                     kp = parsedKp.toFixed(1);
                     break;
@@ -97,6 +88,6 @@ module.exports = async function handler(req, res) {
 
         return res.status(200).json({ bz, speed, density, kp });
     } catch (error) {
-        return res.status(500).json({ error: 'Failed to parse NOAA data' });
+        return res.status(500).json({ error: 'Failed to parse NOAA data', details: error.message });
     }
 };
