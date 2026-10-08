@@ -26,12 +26,13 @@ function showSection(e, sectionId) {
 
 async function fetchAuroraData() {
     try {
+        // Volání přímo na tvou funkční Vercel adresu
         const response = await fetch(`https://auroratrack-rho.vercel.app/api/aurora?t=${Date.now()}`);
         if (!response.ok) throw new Error('API response failed');
         
         const data = await response.json();
         
-        // Přímý převod přesně z tvé JSON struktury
+        // Převod hodnot z tvého JSONu {"bz":-3.13,"speed":350.5,"density":4.86,"kp":"2.0"}
         updateAuroraUI({
             bz: parseFloat(data.bz),
             speed: parseFloat(data.speed),
@@ -192,8 +193,7 @@ function updateMoonPhase() {
 }
 
 function updateAuroraUI({ bz, speed, density, kp }) {
-    // Přesné formátování desetin
-    const formattedBz = (bz > 0 ? '+' : '') + bz.toFixed(1);
+    const formattedBz = (bz > 0 ? '+' : '') + Number(bz).toFixed(1);
 
     const bzEl = document.getElementById('bzVal');
     if (bzEl) bzEl.innerText = `${formattedBz} nT`;
@@ -202,10 +202,10 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     if (speedEl) speedEl.innerText = `${Math.round(speed)} km/s`;
     
     const densityEl = document.getElementById('densityVal');
-    if (densityEl) densityEl.innerText = `${density.toFixed(1)} p/cm³`;
+    if (densityEl) densityEl.innerText = `${Number(density).toFixed(1)} p/cm³`;
     
     const kpEl = document.getElementById('kpVal');
-    if (kpEl) kpEl.innerText = `${kp.toFixed(1)}`;
+    if (kpEl) kpEl.innerText = `${Number(kp).toFixed(1)}`;
 
     const statusCard = document.getElementById('statusCard');
     const levelEl = document.getElementById('activityLevel');
@@ -226,25 +226,30 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     else if (speed >= 500) score += 20;
     else if (speed >= 420) score += 10;
 
-    if (kp >= 6) score += 30;
-    else if (kp >= 4) score += 20;
-    else if (kp >= 2.5) score += 10;
+    const kpNum = parseFloat(kp) || 0;
+    if (kpNum >= 6) score += 30;
+    else if (kpNum >= 4) score += 20;
+    else if (kpNum >= 2.5) score += 10;
 
     if (score >= 70 || bz <= -10) {
         statusCard.classList.add('status-masakr');
         levelEl.innerText = "🚨 AURORA MASAKR!";
+        levelEl.style.color = "#f56565";
         descEl.innerText = "Strong geomagnetic storm! High probability of vivid auroras overhead.";
     } else if (score >= 40 || bz <= -4) {
         statusCard.classList.add('status-better');
         levelEl.innerText = "⚡ HIGH ACTIVITY";
+        levelEl.style.color = "#ecc94b";
         descEl.innerText = "Elevated solar wind & Bz conditions. Excellent visual chance.";
     } else if (score >= 20) {
         statusCard.classList.add('status-good');
         levelEl.innerText = "🟢 MODERATE CHANCE";
+        levelEl.style.color = "#48bb78";
         descEl.innerText = "Geomagnetic activity detected. Visible camera activity & faint arcs.";
     } else {
         statusCard.classList.add('status-quiet');
         levelEl.innerText = "QUIET CONDITIONS";
+        levelEl.style.color = "#cbd5e0";
         descEl.innerText = "Geomagnetic field is quiet. Wait for solar wind speed or Bz to drop negative.";
     }
 
