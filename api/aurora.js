@@ -37,7 +37,6 @@ function getData(url) {
 
 module.exports = async function handler(req, res) {
     try {
-        // Správné a stabilní URL adresy NOAA SWPC
         const [magData, plasmaData, kpData] = await Promise.all([
             getData('https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'),
             getData('https://services.swpc.noaa.gov/json/rtsw/rtsw_plasma_1m.json'),
@@ -49,23 +48,49 @@ module.exports = async function handler(req, res) {
         let density = 0;
         let kp = '2.0';
 
-        // Parsování Magnetometru (Bz)
-        if (Array.isArray(magData) && magData.length > 0) {
-            const latestMag = magData[magData.length - 1];
-            bz = latestMag.bz_gsm !== undefined ? parseFloat(latestMag.bz_gsm) : (latestMag[3] ? parseFloat(latestMag[3]) : 0);
+        // 1. Najdeme nejnovější platný záznam pro Bz
+        if (Array.isArray(magData)) {
+            for (let i = magData.length - 1; i >= 0; i--) {
+                const item = magData[i];
+                const val = item.bz_gsm !== undefined ? item.bz_gsm : (Array.isArray(item) ? item[3] : null);
+                if (val !== null && val !== undefined && !isNaN(parseFloat(val))) {
+                    bz = parseFloat(val);
+                    break;
+                }
+            }
         }
 
-        // Parsování Plasmy (Rychlost a Hustota)
-        if (Array.isArray(plasmaData) && plasmaData.length > 0) {
-            const latestPlasma = plasmaData[plasmaData.length - 1];
-            speed = latestPlasma.speed !== undefined ? parseFloat(latestPlasma.speed) : (latestPlasma[2] ? parseFloat(latestPlasma[2]) : 0);
-            density = latestPlasma.density !== undefined ? parseFloat(latestPlasma.density) : (latestPlasma[1] ? parseFloat(latestPlasma[1]) : 0);
+        // 2. Najdeme nejnovější platný záznam pro Plasmu (speed & density)
+        if (Array.isArray(plasmaData)) {
+            for (let i = plasmaData.length - 1; i >= 0; i--) {
+                const item = plasmaData[i];
+                
+                // Rychlost
+                const sVal = item.speed !== undefined ? item.speed : (Array.isArray(item) ? item[2] : null);
+                if (speed === 0 && sVal !== null && sVal !== undefined && !isNaN(parseFloat(sVal))) {
+                    speed = parseFloat(sVal);
+                }
+
+                // Hustota
+                const dVal = item.density !== undefined ? item.density : (Array.isArray(item) ? item[1] : null);
+                if (density === 0 && dVal !== null && dVal !== undefined && !isNaN(parseFloat(dVal))) {
+                    density = parseFloat(dVal);
+                }
+
+                if (speed !== 0 && density !== 0) break;
+            }
         }
 
-        // Parsování Kp indexu
-        if (Array.isArray(kpData) && kpData.length > 0) {
-            const latestKp = kpData[kpData.length - 1];
-            kp = latestKp.kp_index !== undefined ? parseFloat(latestKp.kp_index).toFixed(1) : (latestKp[1] ? parseFloat(latestKp[1]).toFixed(1) : '2.0');
+        // 3. Najdeme nejnovější platný Kp index
+        if (Array.isArray(kpData)) {
+            for (let i = kpData.length - 1; i >= 0; i--) {
+                const item = kpData[i];
+                const kVal = item.kp_index !== undefined ? item.kp_index : (Array.isArray(item) ? item[1] : null);
+                if (kVal !== null && kVal !== undefined && !isNaN(parseFloat(kVal))) {
+                    kp = parseFloat(kVal).toFixed(1);
+                    break;
+                }
+            }
         }
 
         res.setHeader('Access-Control-Allow-Origin', '*');
