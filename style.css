@@ -31,7 +31,6 @@ body {
     padding: 20px;
 }
 
-/* Navbar */
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -46,10 +45,28 @@ body {
 }
 
 .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 800;
     font-size: 1.1rem;
     letter-spacing: 1px;
-    color: #4ef0c6;
+    color: #cbd5e0;
+}
+
+.logo-icon {
+    font-size: 1.2rem;
+}
+
+.author-tag {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: #718096;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-left: 6px;
 }
 
 .nav-links {
@@ -70,7 +87,6 @@ body {
     color: #4ef0c6;
 }
 
-/* Page Sections */
 .page-section {
     display: none;
     flex-direction: column;
@@ -90,8 +106,8 @@ body {
     font-size: 2.2rem;
     font-weight: 800;
     letter-spacing: 2px;
-    color: #4ef0c6;
-    text-shadow: 0 0 20px rgba(78, 240, 198, 0.3);
+    color: #e2e8f0;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .subtitle {
@@ -100,7 +116,6 @@ body {
     margin-top: 4px;
 }
 
-/* Status Card */
 .status-card {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -128,12 +143,11 @@ body {
     color: #e2e8f0;
 }
 
-.status-low { border-color: #4a5568; color: #cbd5e0; }
-.status-moderate { border-color: #ed8936; color: #fbd38d; box-shadow: 0 0 20px rgba(237, 137, 54, 0.25); }
-.status-high { border-color: #48bb78; color: #9ae6b4; box-shadow: 0 0 25px rgba(72, 187, 120, 0.4); }
-.status-extreme { border-color: #9f7aea; color: #e9d8fd; box-shadow: 0 0 35px rgba(159, 122, 234, 0.6); }
+.status-quiet { border-color: #718096 !important; color: #cbd5e0; box-shadow: none; }
+.status-good { border-color: #48bb78 !important; color: #48bb78; box-shadow: 0 0 20px rgba(72, 187, 120, 0.2); }
+.status-better { border-color: #ecc94b !important; color: #ecc94b; box-shadow: 0 0 20px rgba(236, 201, 75, 0.25); }
+.status-masakr { border-color: #f56565 !important; color: #f56565; box-shadow: 0 0 30px rgba(245, 101, 101, 0.4); }
 
-/* Grids */
 .metrics-grid, .weather-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -177,7 +191,6 @@ body {
     display: block;
 }
 
-/* Forecast Card & Map */
 .forecast-card h3 {
     font-size: 1.1rem;
     color: #4ef0c6;
@@ -204,46 +217,14 @@ body {
     display: block;
 }
 
-.forecast-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-}
-
-.forecast-day {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.day-title {
+.loading-text {
+    color: #718096;
     font-size: 0.9rem;
-    color: #a0aec0;
-    font-weight: 600;
+    grid-column: 1 / -1;
+    padding: 20px;
+    text-align: center;
 }
 
-.kp-badge {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #ffffff;
-    background: rgba(78, 240, 198, 0.1);
-    border: 1px solid rgba(78, 240, 198, 0.3);
-    padding: 6px 16px;
-    border-radius: 20px;
-}
-
-.kp-status {
-    font-size: 0.8rem;
-    color: #cbd5e0;
-}
-
-/* Video Player */
 .main-cam-card {
     padding: 24px;
 }
@@ -289,10 +270,11 @@ body {
 
 .iframe-container {
     width: 100%;
-    height: 300px;
-    border-radius: 8px;
+    height: 380px;
+    border-radius: 10px;
     overflow: hidden;
     margin-top: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .iframe-container iframe {

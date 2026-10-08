@@ -15,11 +15,13 @@
     <div class="app-layout">
         <nav class="navbar">
             <div class="brand">
-                <span class="logo-icon">🌌</span> AURORA TRACKER
+                <span class="logo-icon">🌌</span> 
+                <span>AURORA TRACKER</span>
+                <span class="author-tag">by Mrůzek</span>
             </div>
             <ul class="nav-links">
                 <li class="active"><a href="#aurora" onclick="showSection('aurora')">Live Status</a></li>
-                <li><a href="#forecast" onclick="showSection('forecast')">Aurora Forecast</a></li>
+                <li><a href="#forecast" onclick="showSection('forecast')">Sun Activity</a></li>
                 <li><a href="#weather" onclick="showSection('weather')">Weather & Clouds</a></li>
                 <li><a href="#cameras" onclick="showSection('cameras')">Live Webcams</a></li>
             </ul>
@@ -64,13 +66,20 @@
                         <span class="subtext">Global geomagnetic activity</span>
                     </div>
                 </div>
+
+                <!-- Weather & Moon widget -->
+                <div class="location-widget" id="locationWidget" style="margin-top: 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; text-align: center;">
+                    <div class="location-title" style="font-weight: 700; color: #4ef0c6; margin-bottom: 6px;">📍 Rovaniemi, Finland</div>
+                    <div class="location-details" id="weatherInfo" style="font-size: 0.9rem; color: #cbd5e0;">Loading weather...</div>
+                    <div class="moon-details" id="moonInfo" style="font-size: 0.85rem; color: #a0aec0; margin-top: 6px;">Calculating moon phase...</div>
+                </div>
             </section>
 
-            <!-- SECTION 2: AURORA FORECAST -->
+            <!-- SECTION 2: SUN ACTIVITY & OVATION MAP -->
             <section id="forecast" class="page-section">
                 <header class="header">
-                    <h1>AURORA PREDICTION & FORECAST</h1>
-                    <p class="subtitle">Short-term OVATION model & 3-day geomagnetic outlook</p>
+                    <h1>SUN ACTIVITY & AURORA OVAL</h1>
+                    <p class="subtitle">Solar imagery and real-time auroral oval model</p>
                 </header>
 
                 <div class="forecast-card">
@@ -82,23 +91,18 @@
                 </div>
 
                 <div class="forecast-card" style="margin-top: 20px;">
-                    <h3>3-Day Kp Index Outlook</h3>
-                    <div class="forecast-grid" id="forecastGrid">
-                        <div class="forecast-day">
-                            <span class="day-title">Today</span>
-                            <div class="kp-badge" id="day1Kp">Kp --</div>
-                            <span class="kp-status" id="day1Status">Loading...</span>
-                        </div>
-                        <div class="forecast-day">
-                            <span class="day-title">Tomorrow</span>
-                            <div class="kp-badge" id="day2Kp">Kp --</div>
-                            <span class="kp-status" id="day2Status">Loading...</span>
-                        </div>
-                        <div class="forecast-day">
-                            <span class="day-title">Day 3</span>
-                            <div class="kp-badge" id="day3Kp">Kp --</div>
-                            <span class="kp-status" id="day3Status">Loading...</span>
-                        </div>
+                    <h3>Sunspot Regions (HMI Intensitygram)</h3>
+                    <p class="card-desc">Active sunspot regions on the solar disc.</p>
+                    <div class="map-container">
+                        <img id="sunspotsImg" src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg" alt="Sunspot Regions" />
+                    </div>
+                </div>
+
+                <div class="forecast-card" style="margin-top: 20px;">
+                    <h3>Coronal Holes (GOES SUVI 193Å)</h3>
+                    <p class="card-desc">Coronal holes streaming high-speed solar wind towards Earth.</p>
+                    <div class="map-container">
+                        <img id="coronalHolesImg" src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg" alt="Coronal Holes" />
                     </div>
                 </div>
             </section>
@@ -107,14 +111,14 @@
             <section id="weather" class="page-section">
                 <header class="header">
                     <h1>WEATHER & CLOUD COVER</h1>
-                    <p class="subtitle">Local sky visibility conditions in Lapland</p>
+                    <p class="subtitle">Local sky visibility conditions & live cloud radar</p>
                 </header>
 
                 <div class="weather-grid">
                     <div class="metric-card large">
                         <h3>Cloud Coverage</h3>
                         <div class="value" id="cloudVal">-- %</div>
-                        <span class="subtext" id="cloudDesc">Clear skies required to view Northern Lights</span>
+                        <span class="subtext">Clear skies required to view Northern Lights</span>
                     </div>
                     <div class="metric-card">
                         <h3>Temperature</h3>
@@ -128,10 +132,29 @@
                     </div>
                 </div>
 
+                <!-- Hourly Weather Forecast -->
+                <div class="forecast-card" style="margin-top: 20px;">
+                    <h3 id="yrLocationTitle">Hourly forecast for your location</h3>
+                    <p class="card-desc">Detailed meteorological forecast based on your current GPS position</p>
+                    <div id="yrIframe" style="background: rgba(9, 13, 22, 0.6); border-radius: 10px; padding: 10px; min-height: 120px;">
+                        <div class="loading-text">Loading hourly forecast...</div>
+                    </div>
+                </div>
+
+                <!-- Windy Cloud Map -->
                 <div class="satellite-card" style="margin-top: 20px;">
-                    <h3>Live Cloud Radar / Satellite</h3>
+                    <h3>Live Cloud Radar (Windy)</h3>
+                    <p class="card-desc" style="margin-bottom: 12px;">Real-time satellite cloud cover layer</p>
+                    
                     <div class="iframe-container">
-                        <iframe src="https://www.rainalarm.com/" title="Rain and Cloud Radar" frameborder="0"></iframe>
+                        <iframe src="https://embed.windy.com/embed2.html?lat=66.5039&lon=25.7294&zoom=6&level=surface&overlay=clouds&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default" title="Windy Cloud Radar" frameborder="0"></iframe>
+                    </div>
+
+                    <div class="windy-tip" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 14px; margin-top: 12px; font-size: 0.85rem; text-align: left; color: #e2e8f0;">
+                        <strong>Color meaning:</strong><br>
+                        ☀️ Brown / orange → clear sky (best for aurora)<br>
+                        🌥️ Light gray → partly cloudy<br>
+                        🌧️ Dark gray → thick low clouds
                     </div>
                 </div>
             </section>
@@ -143,11 +166,13 @@
                     <p class="subtitle">Watch live night sky streams from Lapland</p>
                 </header>
 
-                <div class="webcam-card main-cam-card">
-                    <h3>Lapland Live Sky Stream</h3>
-                    <div class="video-container large-video">
-                        <iframe src="https://www.youtube-nocookie.com/embed/videoseries?list=PL3ZwX40d3a5xP7l30B_D45d-yq7XpG_2j" title="Lapland Live Aurora Stream" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    </div>
+                <div class="webcam-card main-cam-card" style="text-align: center; padding: 40px 20px;">
+                    <h3>Apukka Resort Live Sky Stream</h3>
+                    <p class="card-desc" style="margin: 12px 0 24px 0; color: #a0aec0;">YouTube restricts direct embedding for this live stream. Click below to watch the live feed directly on YouTube:</p>
+                    
+                    <a href="https://www.youtube.com/watch?v=wT8Zhh9MBEE" target="_blank" rel="noopener noreferrer" class="cam-btn" style="display: inline-block; background: #4ef0c6; color: #090d16; font-weight: 700; font-size: 1rem; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 0 20px rgba(78, 240, 198, 0.3);">
+                        ▶ Watch Live Stream on YouTube ↗
+                    </a>
                 </div>
 
                 <div class="forecast-card hub-card" style="margin-top: 20px;">
@@ -161,7 +186,7 @@
 
             <footer class="footer">
                 <p>Last update: <span id="lastUpdate">--:--:--</span></p>
-                <p class="source">Data sourced from FMI, NOAA OVATION & Jemma.mobi</p>
+                <p class="source">Data sourced from FMI, NOAA OVATION & SWPC | Created by Mrůzek</p>
             </footer>
         </main>
     </div>
