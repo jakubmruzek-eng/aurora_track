@@ -25,7 +25,7 @@ function getData(url) {
 function parseValidNumber(val) {
     if (val === null || val === undefined) return null;
     const num = parseFloat(val);
-    if (isNaN(num) || num <= -900) return null; // Odfiltruje NOAA -999 chybové hodnoty
+    if (isNaN(num) || num <= -900) return null;
     return num;
 }
 
@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
         const [magData, windData, kpData] = await Promise.all([
             getData('https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'),
             getData('https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'),
-            getData('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json')
+            getData('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')
         ]);
 
         let bz = 0;
@@ -42,10 +42,11 @@ module.exports = async function handler(req, res) {
         let density = 0;
         let kp = '2.0';
 
-        // 1. Bz z rtsw_mag_1m.json (klíč: bz_gsm)
-        if (Array.isArray(magData)) {
-            for (let i = magData.length - 1; i >= 0; i--) {
-                const parsedBz = parseValidNumber(magData[i]?.bz_gsm);
+        // 1. Bz z rtsw_mag_1m.json (seřazeno podle time_tag od nejnovějšího)
+        if (Array.isArray(magData) && magData.length > 0) {
+            const sortedMag = magData.slice().sort((a, b) => new Date(b.time_tag) - new Date(a.time_tag));
+            for (const item of sortedMag) {
+                const parsedBz = parseValidNumber(item?.bz_gsm);
                 if (parsedBz !== null) {
                     bz = parsedBz;
                     break;
@@ -53,29 +54,27 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // 2. Speed a Density z rtsw_wind_1m.json (klíče: proton_speed, proton_density)
-        if (Array.isArray(windData)) {
-            for (let i = windData.length - 1; i >= 0; i--) {
-                const item = windData[i];
-
+        // 2. Rychlost a Hustota z rtsw_wind_1m.json
+        if (Array.isArray(windData) && windData.length > 0) {
+            const sortedWind = windData.slice().sort((a, b) => new Date(b.time_tag) - new Date(a.time_tag));
+            for (const item of sortedWind) {
                 if (speed === 0) {
-                    const parsedSpeed = parseValidNumber(item?.proton_speed);
-                    if (parsedSpeed !== null && parsedSpeed > 0) speed = parsedSpeed;
+                    const s = parseValidNumber(item?.proton_speed);
+                    if (s !== null && s > 0) speed = s;
                 }
-
                 if (density === 0) {
-                    const parsedDensity = parseValidNumber(item?.proton_density);
-                    if (parsedDensity !== null && parsedDensity > 0) density = parsedDensity;
+                    const d = parseValidNumber(item?.proton_density);
+                    if (d !== null && d > 0) density = d;
                 }
-
                 if (speed > 0 && density > 0) break;
             }
         }
 
-        // 3. Kp index z planetary_k_index_1m.json (klíč: kp_index)
-        if (Array.isArray(kpData)) {
-            for (let i = kpData.length - 1; i >= 0; i--) {
-                const parsedKp = parseValidNumber(kpData[i]?.kp_index);
+        // 3. Kp index z noaa-planetary-k-index.json (2D pole: [ ["time_tag", "kp", ...], ... ])
+        if (Array.isArray(kpData) && kpData.length > 1) {
+            for (let i = kpData.length - 1; i >= 1; i--) {
+                const row = kpData[i];
+                const parsedKp = parseValidNumber(row[1]);
                 if (parsedKp !== null) {
                     kp = parsedKp.toFixed(1);
                     break;
