@@ -12,54 +12,54 @@ function showSection(sectionId) {
 }
 
 async function fetchAuroraData() {
+    let bz = 0, speed = 400, density = 1.0, kp = '2.0';
+    let dataLoaded = false;
+
+    // 1. Přímé načtení slunečního větru z NOAA SWPC
     try {
-        // 1. Přímé načtení dat o slunečním větru z NOAA SWPC
         const solarRes = await fetch('https://services.swpc.noaa.gov/products/summary/10-minute-solar-wind.json');
-        if (!solarRes.ok) throw new Error('Chyba při načítání dat slunečního větru');
-        
-        const solarData = await solarRes.json();
-
-        let bz = null, speed = null, density = null;
-
-        if (Array.isArray(solarData) && solarData.length > 0) {
-            const lastRow = solarData[solarData.length - 1];
-            bz = parseFloat(lastRow[1]);
-            density = parseFloat(lastRow[2]);
-            speed = parseFloat(lastRow[3]);
-        } else if (typeof solarData === 'object' && solarData !== null) {
-            bz = parseFloat(solarData.Bz);
-            speed = parseFloat(solarData.Velocity);
-            density = parseFloat(solarData.Density);
-        }
-
-        // 2. Přímé načtení Kp indexu
-        let kp = '2.0';
-        try {
-            const kpRes = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json');
-            if (kpRes.ok) {
-                const kpData = await kpRes.json();
-                if (Array.isArray(kpData) && kpData.length > 1) {
-                    const lastKp = kpData[kpData.length - 1];
-                    kp = parseFloat(lastKp[1]).toFixed(1);
-                }
+        if (solarRes.ok) {
+            const solarData = await solarRes.json();
+            if (Array.isArray(solarData) && solarData.length > 0) {
+                const lastRow = solarData[solarData.length - 1];
+                bz = parseFloat(lastRow[1]) || 0;
+                density = parseFloat(lastRow[2]) || 0;
+                speed = parseFloat(lastRow[3]) || 0;
+                dataLoaded = true;
+            } else if (typeof solarData === 'object' && solarData !== null) {
+                bz = parseFloat(solarData.Bz) || 0;
+                speed = parseFloat(solarData.Velocity) || 0;
+                density = parseFloat(solarData.Density) || 0;
+                dataLoaded = true;
             }
-        } catch (kpErr) {
-            console.warn('Kp data fallback:', kpErr);
         }
-
-        if (isNaN(bz) || isNaN(speed) || isNaN(density)) {
-            throw new Error('Chybějící číselná data');
-        }
-
-        updateAuroraUI({ bz, speed, density, kp });
-
-    } catch (error) {
-        console.error('Chyba při načítání živých dat:', error);
-        document.getElementById('activityLevel').innerText = "DATA OFFLINE";
-        document.getElementById('activityDesc').innerText = "Nepodařilo se připojit k NOAA satelitu. Zkuste obnovit stránku.";
+    } catch (e) {
+        console.warn('Chyba načítání slunečního větru z NOAA:', e);
     }
 
-    // 3. Načtení 3denní Kp předpovědi
+    // 2. Přímé načtení Kp indexu z NOAA SWPC
+    try {
+        const kpRes = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json');
+        if (kpRes.ok) {
+            const kpData = await kpRes.json();
+            if (Array.isArray(kpData) && kpData.length > 1) {
+                const lastKp = kpData[kpData.length - 1];
+                kp = parseFloat(lastKp[1]).toFixed(1);
+            }
+        }
+    } catch (e) {
+        console.warn('Chyba načítání Kp indexu:', e);
+    }
+
+    // Vykreslení dat na stránce
+    if (dataLoaded) {
+        updateAuroraUI({ bz, speed, density, kp });
+    } else {
+        document.getElementById('activityLevel').innerText = "DATA OFFLINE";
+        document.getElementById('activityDesc').innerText = "Satelitní data NOAA jsou dočasně nedostupná. Obnovte stránku za chvíli.";
+    }
+
+    // 3. Načtení předpovědi
     fetchForecastData();
 
     // 4. Obnova snímku oválu polární záře
@@ -72,29 +72,32 @@ async function fetchAuroraData() {
 async function fetchForecastData() {
     try {
         const forecastRes = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json');
-        if (!forecastRes.ok) return;
-
-        const rawData = await forecastRes.json();
-        if (Array.isArray(rawData) && rawData.length > 1) {
-            const forecastItems = rawData.slice(1, 9).map(row => ({
-                time: row[0] ? row[0].substring(11, 16) + ' UTC' : '--:--',
-                kp: parseFloat(row[1]).toFixed(1)
-            }));
-            renderForecastTimeline(forecastItems);
+        if (forecastRes.ok) {
+            const rawData = await forecastRes.json();
+            if (Array.isArray(rawData) && rawData.length > 1) {
+                const forecastItems = rawData.slice(1, 9).map(row => ({
+                    time: row[0] ? row[0].substring(11, 16) + ' UTC' : '--:--',
+                    kp: parseFloat(row[1]).toFixed(1)
+                }));
+                renderForecastTimeline(forecastItems);
+                return;
+            }
         }
     } catch (e) {
         console.warn('Chyba předpovědi:', e);
-        renderForecastTimeline([
-            { time: '00:00 UTC', kp: '2.0' },
-            { time: '03:00 UTC', kp: '2.3' },
-            { time: '06:00 UTC', kp: '1.7' },
-            { time: '09:00 UTC', kp: '2.0' },
-            { time: '12:00 UTC', kp: '2.7' },
-            { time: '15:00 UTC', kp: '3.0' },
-            { time: '18:00 UTC', kp: '2.3' },
-            { time: '21:00 UTC', kp: '1.7' }
-        ]);
     }
+
+    // Náhradní rozpis, pokud API neodpoví
+    renderForecastTimeline([
+        { time: '00:00 UTC', kp: '2.0' },
+        { time: '03:00 UTC', kp: '2.3' },
+        { time: '06:00 UTC', kp: '1.7' },
+        { time: '09:00 UTC', kp: '2.0' },
+        { time: '12:00 UTC', kp: '2.7' },
+        { time: '15:00 UTC', kp: '3.0' },
+        { time: '18:00 UTC', kp: '2.3' },
+        { time: '21:00 UTC', kp: '1.7' }
+    ]);
 }
 
 function renderForecastTimeline(items) {
@@ -146,5 +149,6 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     document.getElementById('lastUpdate').innerText = now.toLocaleTimeString();
 }
 
+// Spuštění načítání
 fetchAuroraData();
 setInterval(fetchAuroraData, REFRESH_INTERVAL);
