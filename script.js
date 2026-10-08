@@ -1,6 +1,8 @@
 const REFRESH_INTERVAL = 60000;
 
-function showSection(sectionId) {
+function showSection(e, sectionId) {
+    if (e) e.preventDefault();
+
     document.querySelectorAll('.page-section').forEach(sec => {
         sec.classList.remove('active');
         sec.style.display = 'none';
@@ -24,12 +26,12 @@ function showSection(sectionId) {
 
 async function fetchAuroraData() {
     try {
-        // Volání naší nové Vercel serverless funkce
+        // Volání Vercel serverless funkce na vašem backendu
         const response = await fetch('/api/aurora');
         if (response.ok) {
             const data = await response.json();
             
-            // Aktualizace hlavních metrik reálnými daty z NOAA
+            // Aktualizace UI s daty z vaší funkce
             updateAuroraUI({
                 bz: data.bz,
                 speed: data.speed,
@@ -37,16 +39,15 @@ async function fetchAuroraData() {
                 kp: data.kp
             });
 
-            // Pokud máš na webu připravený element pro predikci, můžeme s ní pracovat
+            // Uložení predikce, pokud ji vaše API vrací
             if (data.forecast) {
-                console.3denniPredikce = data.forecast;
+                window.auroraForecast = data.forecast;
             }
         } else {
             throw new Error('API response not ok');
         }
     } catch (e) {
         console.warn('Nepodařilo se načíst reálná data, použijí se záložní hodnoty', e);
-        // Fallback hodnoty, kdyby API výjimečně selhalo
         updateAuroraUI({ bz: -2.1, speed: 430, density: 4.5, kp: '3.0' });
     }
 
@@ -55,23 +56,14 @@ async function fetchAuroraData() {
 
     const timestamp = Date.now();
 
-    // 1. Ovál polární záře
     const mapImg = document.getElementById('ovalMap');
-    if (mapImg) {
-        mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${timestamp}`;
-    }
+    if (mapImg) mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${timestamp}`;
 
-    // 2. Sluneční skvrny (SUVI 171)
     const sunspotsImg = document.getElementById('sunspotsImg');
-    if (sunspotsImg) {
-        sunspotsImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/171/latest.png?t=${timestamp}`;
-    }
+    if (sunspotsImg) sunspotsImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/171/latest.png?t=${timestamp}`;
 
-    // 3. Korónové díry (SUVI 195)
     const coronalHolesImg = document.getElementById('coronalHolesImg');
-    if (coronalHolesImg) {
-        coronalHolesImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png?t=${timestamp}`;
-    }
+    if (coronalHolesImg) coronalHolesImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png?t=${timestamp}`;
 }
 
 function initLocationAndWeather() {
@@ -216,34 +208,50 @@ function updateAuroraUI({ bz, speed, density, kp }) {
 
     statusCard.className = 'status-card';
 
-    if (bz < -10 || speed > 600 || parseFloat(kp) >= 6.0) {
+    // Výpočet váženého skóre pro aktivitu
+    let score = 0;
+
+    if (bz <= -10) score += 40;
+    else if (bz <= -5) score += 25;
+    else if (bz <= -2) score += 15;
+    else if (bz < 0) score += 5;
+
+    if (speed >= 600) score += 30;
+    else if (speed >= 500) score += 20;
+    else if (speed >= 420) score += 10;
+
+    const kpNum = parseFloat(kp) || 0;
+    if (kpNum >= 6) score += 30;
+    else if (kpNum >= 4) score += 20;
+    else if (kpNum >= 2.5) score += 10;
+
+    if (score >= 70 || bz <= -10) {
         statusCard.classList.add('status-masakr');
         levelEl.innerText = "🚨 AURORA MASAKR!";
         levelEl.style.color = "#f56565";
-        descEl.innerText = "Extreme geomagnetic storm! Spectacular auroras overhead.";
-    } else if (bz < -5 || speed > 480 || parseFloat(kp) >= 4.0) {
+        descEl.innerText = "Strong geomagnetic storm! High probability of vivid auroras overhead.";
+    } else if (score >= 40 || bz <= -4) {
         statusCard.classList.add('status-better');
-        levelEl.innerText = "⚡ BETTER CONDITIONS";
+        levelEl.innerText = "⚡ HIGH ACTIVITY";
         levelEl.style.color = "#ecc94b";
-        descEl.innerText = "Elevated activity. Very good chance of bright auroras.";
-    } else if (bz < -2 || speed > 410 || parseFloat(kp) >= 2.5) {
+        descEl.innerText = "Elevated solar wind & Bz conditions. Excellent visual chance.";
+    } else if (score >= 20) {
         statusCard.classList.add('status-good');
-        levelEl.innerText = "🟢 GOOD CHANCE";
+        levelEl.innerText = "🟢 MODERATE CHANCE";
         levelEl.style.color = "#48bb78";
-        descEl.innerText = "Moderate conditions. Visible away from city lights.";
+        descEl.innerText = "Geomagnetic activity detected. Visible camera activity & faint arcs.";
     } else {
         statusCard.classList.add('status-quiet');
         levelEl.innerText = "QUIET CONDITIONS";
         levelEl.style.color = "#cbd5e0";
-        descEl.innerText = "Geomagnetic field is calm. Low chance right now.";
+        descEl.innerText = "Geomagnetic field is quiet. Wait for solar wind speed or Bz to drop negative.";
     }
 
     document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    showSection('aurora');
+    fetchAuroraData();
 });
 
-fetchAuroraData();
 setInterval(fetchAuroraData, REFRESH_INTERVAL);
