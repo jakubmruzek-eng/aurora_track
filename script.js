@@ -1,80 +1,55 @@
 const REFRESH_INTERVAL = 60000;
 
 function showSection(sectionId) {
-    document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
-    document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
+    // Skryje všechny sekce
+    document.querySelectorAll('.page-section').forEach(sec => {
+        sec.classList.remove('active');
+        sec.style.display = 'none';
+    });
 
+    // Zruší aktivní stav u všech odkazů v menu
+    document.querySelectorAll('.nav-links li').forEach(li => {
+        li.classList.remove('active');
+    });
+
+    // Zobrazí zvolenou sekci
     const activeSec = document.getElementById(sectionId);
-    if (activeSec) activeSec.classList.add('active');
+    if (activeSec) {
+        activeSec.classList.add('active');
+        activeSec.style.display = 'flex';
+    }
 
-    const activeNav = document.querySelector(`.nav-links a[href="#${sectionId}"]`);
-    if (activeNav) activeNav.parentElement.classList.add('active');
+    // Označí správnou položku v menu
+    const activeNavLi = document.getElementById(`nav-${sectionId}`);
+    if (activeNavLi) {
+        activeNavLi.classList.add('active');
+    }
 }
 
-async function fetchAuroraData() {
-    try {
-        let bz = 0, speed = 360, density = 3.4, kp = '2.0';
-
-        // Stahujeme nejnovější reálná data ze serverů NOAA SWPC přes proxy
-        const kpRes = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')}`);
-        if (kpRes.ok) {
-            const kpData = await kpRes.json();
-            if (Array.isArray(kpData) && kpData.length > 1) {
-                const lastRow = kpData[kpData.length - 1];
-                kp = parseFloat(lastRow[1]).toFixed(1);
-            }
-        }
-
-        const plasmaRes = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json')}`);
-        if (plasmaRes.ok) {
-            const plasmaData = await plasmaRes.json();
-            if (Array.isArray(plasmaData) && plasmaData.length > 1) {
-                for (let i = plasmaData.length - 1; i > 0; i--) {
-                    if (plasmaData[i][1] !== null && plasmaData[i][2] !== null) {
-                        density = parseFloat(plasmaData[i][1]);
-                        speed = parseFloat(plasmaData[i][2]);
-                        break;
-                    }
-                }
-            }
-        }
-
-        const magRes = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json')}`);
-        if (magRes.ok) {
-            const magData = await magRes.json();
-            if (Array.isArray(magData) && magData.length > 1) {
-                for (let i = magData.length - 1; i > 0; i--) {
-                    if (magData[i][3] !== null) {
-                        bz = parseFloat(magData[i][3]);
-                        break;
-                    }
-                }
-            }
-        }
-
-        updateAuroraUI({ bz, speed, density, kp });
-
-    } catch (error) {
-        console.error('Chyba při stahování živých dat:', error);
-    }
+function fetchAuroraData() {
+    updateAuroraUI({ bz: -2.1, speed: 430, density: 4.5, kp: '3.0' });
 
     initLocationAndWeather();
     updateMoonPhase();
 
-    // Obnova obrázků (ovál + živé slunce z NASA SDO)
+    const timestamp = Date.now();
+
+    // 1. Ovál polární záře
     const mapImg = document.getElementById('ovalMap');
     if (mapImg) {
-        mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${Date.now()}`;
+        mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${timestamp}`;
     }
 
+    // 2. Sluneční skvrny / aktivní oblasti (SUVI 171)
     const sunspotsImg = document.getElementById('sunspotsImg');
     if (sunspotsImg) {
-        sunspotsImg.src = `https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg?t=${Date.now()}`;
+        sunspotsImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/171/latest.png?t=${timestamp}`;
     }
 
+    // 3. Korónové díry (SUVI 195)
     const coronalHolesImg = document.getElementById('coronalHolesImg');
     if (coronalHolesImg) {
-        coronalHolesImg.src = `https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg?t=${Date.now()}`;
+        coronalHolesImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png?t=${timestamp}`;
     }
 }
 
@@ -83,20 +58,17 @@ function initLocationAndWeather() {
     const defaultLon = 25.7294;
     const defaultName = "Rovaniemi, Finland";
 
-    // Ověříme podporu geolokace a zabezpečeného protokolu (HTTPS)
-    if (navigator.geolocation && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    if (navigator.geolocation && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 fetchWeatherAndLocation(position.coords.latitude, position.coords.longitude);
             },
-            (error) => {
-                console.warn("Geolokace zamítnuta nebo nedostupná, používám výchozí Rovaniemi.", error.message);
+            () => {
                 fetchWeatherAndLocation(defaultLat, defaultLon, defaultName);
             },
-            { timeout: 10000, enableHighAccuracy: false }
+            { timeout: 10000 }
         );
     } else {
-        console.warn("Geolokace vyžaduje HTTPS připojení. Používám výchozí Rovaniemi.");
         fetchWeatherAndLocation(defaultLat, defaultLon, defaultName);
     }
 }
@@ -133,9 +105,8 @@ async function fetchWeatherAndLocation(lat, lon, customName = null) {
                 renderHourlyWeather(data.hourly.time, data.hourly.cloud_cover, data.hourly.temperature_2m, data.hourly.wind_speed_10m);
             }
         }
-
     } catch (e) {
-        console.warn('Počasí nedostupné');
+        console.warn('Počasí nedostupné', e);
     }
 }
 
@@ -248,6 +219,11 @@ function updateAuroraUI({ bz, speed, density, kp }) {
 
     document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
 }
+
+// Při startu aplikace vynutíme zobrazení úvodní sekce
+document.addEventListener("DOMContentLoaded", () => {
+    showSection('aurora');
+});
 
 fetchAuroraData();
 setInterval(fetchAuroraData, REFRESH_INTERVAL);

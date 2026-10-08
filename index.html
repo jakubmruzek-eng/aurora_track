@@ -20,10 +20,10 @@
                 <span class="author-tag">by Mrůzek</span>
             </div>
             <ul class="nav-links">
-                <li class="active"><a href="#aurora" onclick="showSection('aurora')">Live Status</a></li>
-                <li><a href="#forecast" onclick="showSection('forecast')">Sun Activity</a></li>
-                <li><a href="#weather" onclick="showSection('weather')">Weather & Clouds</a></li>
-                <li><a href="#cameras" onclick="showSection('cameras')">Live Webcams</a></li>
+                <li class="active" id="nav-aurora"><a href="#aurora" onclick="showSection('aurora'); return false;">Live Status</a></li>
+                <li id="nav-forecast"><a href="#forecast" onclick="showSection('forecast'); return false;">Sun Activity</a></li>
+                <li id="nav-weather"><a href="#weather" onclick="showSection('weather'); return false;">Weather & Clouds</a></li>
+                <li id="nav-cameras"><a href="#cameras" onclick="showSection('cameras'); return false;">Live Webcams</a></li>
             </ul>
         </nav>
 
@@ -91,18 +91,18 @@
                 </div>
 
                 <div class="forecast-card" style="margin-top: 20px;">
-                    <h3>Sunspot Regions (HMI Intensitygram)</h3>
+                    <h3>Sunspot Regions (Active Areas SUVI 171)</h3>
                     <p class="card-desc">Active sunspot regions on the solar disc.</p>
                     <div class="map-container">
-                        <img id="sunspotsImg" src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg" alt="Sunspot Regions" />
+                        <img id="sunspotsImg" src="https://services.swpc.noaa.gov/images/animations/suvi/primary/171/latest.png" alt="Sunspot Regions" />
                     </div>
                 </div>
 
                 <div class="forecast-card" style="margin-top: 20px;">
-                    <h3>Coronal Holes (GOES SUVI 193Å)</h3>
+                    <h3>Coronal Holes (GOES SUVI 195Å)</h3>
                     <p class="card-desc">Coronal holes streaming high-speed solar wind towards Earth.</p>
                     <div class="map-container">
-                        <img id="coronalHolesImg" src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg" alt="Coronal Holes" />
+                        <img id="coronalHolesImg" src="https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png" alt="Coronal Holes" />
                     </div>
                 </div>
             </section>
