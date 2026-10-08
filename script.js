@@ -1,73 +1,50 @@
 const REFRESH_INTERVAL = 60000;
 
-// Přepínání záložek v menu
 function showSection(e, sectionId) {
-    if (e && e.preventDefault) {
-        e.preventDefault();
-    }
+    if (e && e.preventDefault) e.preventDefault();
 
-    // Skrytí všech sekcí
     document.querySelectorAll('.page-section').forEach(sec => {
         sec.classList.remove('active');
         sec.style.display = 'none';
     });
 
-    // Odstranění aktivity z menu
     document.querySelectorAll('.nav-links li').forEach(li => {
         li.classList.remove('active');
     });
 
-    // Zobrazení vybrané sekce
     const activeSec = document.getElementById(sectionId);
     if (activeSec) {
         activeSec.classList.add('active');
         activeSec.style.display = 'flex';
     }
 
-    // Zvýraznění aktivní položky v menu
     const activeNavLi = document.getElementById(`nav-${sectionId}`);
     if (activeNavLi) {
         activeNavLi.classList.add('active');
     }
 }
 
-// Hlavní funkce pro načtení živých dat z NOAA
 async function fetchAuroraData() {
     try {
-        const [magRes, plasmaRes, kpRes] = await Promise.all([
-            fetch('https://services.swpc.noaa.gov/products/solar-wind/mag-1-minute.json'),
-            fetch('https://services.swpc.noaa.gov/products/solar-wind/plasma-1-minute.json'),
-            fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')
-        ]);
-
-        if (magRes.ok && plasmaRes.ok && kpRes.ok) {
-            const magData = await magRes.json();
-            const plasmaData = await plasmaRes.json();
-            const kpData = await kpRes.json();
-
-            const latestMag = magData.length > 1 ? magData[magData.length - 1] : null;
-            const latestPlasma = plasmaData.length > 1 ? plasmaData[plasmaData.length - 1] : null;
-            const latestKp = kpData.length > 1 ? kpData[kpData.length - 1] : null;
-
-            const bz = latestMag && !isNaN(parseFloat(latestMag[3])) ? parseFloat(latestMag[3]) : 0;
-            const speed = latestPlasma && !isNaN(parseFloat(latestPlasma[2])) ? parseFloat(latestPlasma[2]) : 0;
-            const density = latestPlasma && !isNaN(parseFloat(latestPlasma[1])) ? parseFloat(latestPlasma[1]) : 0;
-            const kp = latestKp && latestKp[1] !== undefined ? parseFloat(latestKp[1]).toFixed(1) : '0.0';
-
-            updateAuroraUI({ bz, speed, density, kp });
-        } else {
-            throw new Error('NOAA API neodpovídá');
-        }
+        // Přidané t=Date.now() zabrání prohlížeči kešovat starou odpoveď API
+        const response = await fetch(`/api/aurora?t=${Date.now()}`);
+        if (!response.ok) throw new Error('API response failed');
+        
+        const data = await response.json();
+        
+        updateAuroraUI({
+            bz: data.bz,
+            speed: data.speed,
+            density: data.density,
+            kp: data.kp
+        });
     } catch (e) {
-        console.warn('Chyba při načítání dat z NOAA:', e);
-        // Pokud načtení selže, zobrazíme mírný stav místo zaseknutého "Connecting..."
-        updateAuroraUI({ bz: -1.0, speed: 380, density: 2.0, kp: '2.0' });
+        console.warn('Problém s načtením API, zkusí se znovu', e);
     }
 
     initLocationAndWeather();
     updateMoonPhase();
 
-    // Aktualizace obrázků s cache busterem
     const timestamp = Date.now();
     const mapImg = document.getElementById('ovalMap');
     if (mapImg) mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${timestamp}`;
@@ -279,9 +256,7 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
 }
 
-// Inicializace po načtení DOMu
 document.addEventListener("DOMContentLoaded", () => {
-    // Smažeme případnou starou složku /api z hlavy
     fetchAuroraData();
 });
 
