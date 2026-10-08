@@ -26,17 +26,22 @@ function showSection(e, sectionId) {
 
 async function fetchAuroraData() {
     try {
-        // Volání přímo na tvé funkční Vercel API
         const response = await fetch(`https://auroratrack-rho.vercel.app/api/aurora?t=${Date.now()}`);
         if (!response.ok) throw new Error('API response failed');
         
         const data = await response.json();
         
+        // Záchrana pro různé struktury JSONu z API
+        const bzVal = data.bz ?? data.Bz ?? data.mag?.bz ?? 0;
+        const speedVal = data.speed ?? data.windSpeed ?? data.wind?.speed ?? 0;
+        const densityVal = data.density ?? data.windDensity ?? data.wind?.density ?? 0;
+        const kpVal = data.kp ?? data.kpIndex ?? data.kp_index ?? 0;
+
         updateAuroraUI({
-            bz: data.bz,
-            speed: data.speed,
-            density: data.density,
-            kp: data.kp
+            bz: parseFloat(bzVal),
+            speed: parseFloat(speedVal),
+            density: parseFloat(densityVal),
+            kp: parseFloat(kpVal)
         });
     } catch (e) {
         console.warn('Problém s načtením API, zkusí se znovu', e);
@@ -204,7 +209,7 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     if (densityEl) densityEl.innerText = `${Number(density).toFixed(1)} p/cm³`;
     
     const kpEl = document.getElementById('kpVal');
-    if (kpEl) kpEl.innerText = `${kp}`;
+    if (kpEl) kpEl.innerText = `${Number(kp).toFixed(1)}`;
 
     const statusCard = document.getElementById('statusCard');
     const levelEl = document.getElementById('activityLevel');
@@ -225,41 +230,27 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     else if (speed >= 500) score += 20;
     else if (speed >= 420) score += 10;
 
-    const kpNum = parseFloat(kp) || 0;
-    if (kpNum >= 6) score += 30;
-    else if (kpNum >= 4) score += 20;
-    else if (kpNum >= 2.5) score += 10;
-
-    let activeColor = "#cbd5e0";
+    if (kp >= 6) score += 30;
+    else if (kp >= 4) score += 20;
+    else if (kp >= 2.5) score += 10;
 
     if (score >= 70 || bz <= -10) {
         statusCard.classList.add('status-masakr');
         levelEl.innerText = "🚨 AURORA MASAKR!";
-        activeColor = "#f56565";
         descEl.innerText = "Strong geomagnetic storm! High probability of vivid auroras overhead.";
     } else if (score >= 40 || bz <= -4) {
         statusCard.classList.add('status-better');
         levelEl.innerText = "⚡ HIGH ACTIVITY";
-        activeColor = "#ecc94b";
         descEl.innerText = "Elevated solar wind & Bz conditions. Excellent visual chance.";
     } else if (score >= 20) {
         statusCard.classList.add('status-good');
         levelEl.innerText = "🟢 MODERATE CHANCE";
-        activeColor = "#48bb78";
         descEl.innerText = "Geomagnetic activity detected. Visible camera activity & faint arcs.";
     } else {
         statusCard.classList.add('status-quiet');
         levelEl.innerText = "QUIET CONDITIONS";
-        activeColor = "#cbd5e0";
         descEl.innerText = "Geomagnetic field is quiet. Wait for solar wind speed or Bz to drop negative.";
     }
-
-    // Aplikace dynamické barvy na text nadpisu i na živé hodnoty
-    levelEl.style.setProperty('color', activeColor, 'important');
-    if (bzEl) bzEl.style.setProperty('color', activeColor, 'important');
-    if (speedEl) speedEl.style.setProperty('color', activeColor, 'important');
-    if (densityEl) densityEl.style.setProperty('color', activeColor, 'important');
-    if (kpEl) kpEl.style.setProperty('color', activeColor, 'important');
 
     const lastUpdateEl = document.getElementById('lastUpdate');
     if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
