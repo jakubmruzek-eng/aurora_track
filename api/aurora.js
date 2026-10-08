@@ -1,59 +1,58 @@
 export default async function handler(req, res) {
-    // 1. Povolení CORS pro všechny domény (GitHub Pages, localhost)
+    // CORS a zákazy kešování
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    // 2. Absolutní zákaz kešování na úrovni Vercel Edge i prohlížeče
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
 
-    // Ošetření CORS preflight dotazu
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
     try {
-        // Načtení živých dat z NOAA SWPC (Mag & Solar Wind)
-        const [magRes, plasmaRes, kpRes] = await Promise.all([
-            fetch('https://services.swpc.noaa.gov/products/summary/10-minute-normal-mag.json', { cache: 'no-store' }),
-            fetch('https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json', { cache: 'no-store' }),
-            fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', { cache: 'no-store' })
-        ]);
-
+        // 1. Načtení magnetického pole (Bz) - NOAA 1-minutová řada
         let bzVal = 0;
-        let speedVal = 0;
-        let densityVal = 0;
-        let kpVal = "0.0";
-
-        // Parsování Bz
+        const magRes = await fetch('https://services.swpc.noaa.gov/json/ace/mag/ace_mag_1m.json', { cache: 'no-store' });
         if (magRes.ok) {
             const magData = await magRes.json();
-            if (magData && magData.Bz !== undefined) {
-                bzVal = parseFloat(magData.Bz);
+            if (Array.isArray(magData) && magData.length > 0) {
+                const lastMag = magData[magData.length - 1];
+                bzVal = parseFloat(lastMag.bz) || 0;
             }
         }
 
-        // Parsování Rychlosti a Hustoty
+        // 2. Načtení slunečního větru (Speed + Density) - NOAA 1-minutová řada
+        let speedVal = 0;
+        let densityVal = 0;
+        const plasmaRes = await fetch('https://services.swpc.noaa.gov/json/ace/swpam/ace_swpam_1m.json', { cache: 'no-store' });
         if (plasmaRes.ok) {
             const plasmaData = await plasmaRes.json();
-            if (plasmaData) {
-                if (plasmaData.WindSpeed !== undefined) speedVal = parseFloat(plasmaData.WindSpeed);
-                if (plasmaData.Density !== undefined) densityVal = parseFloat(plasmaData.Density);
+            if (Array.isArray(plasmaData) && plasmaData.length > 0) {
+                // Hledáme poslední platný záznam (často bývají v datech záporná chybová čísla jako -999.9)
+                for (let i = plasmaData.length - 1; i >= 0; i--) {
+                    const row = plasmaData[i];
+                    if (row.speed > 0 && row.density > 0) {
+                        speedVal = parseFloat(row.speed);
+                        densityVal = parseFloat(row.density);
+                        break;
+                    }
+                }
             }
         }
 
-        // Parsování Kp Indexu
+        // 3. Načtení Kp Indexu - NOAA Kp 1-denní přehled
+        let kpVal = "0.0";
+        const kpRes = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', { cache: 'no-store' });
         if (kpRes.ok) {
             const kpData = await kpRes.json();
-            if (Array.isArray(kpData) && kpData.length > 0) {
-                const lastEntry = kpData[kpData.length - 1];
-                kpVal = String(lastEntry[1] || "0.0");
+            if (Array.isArray(kpData) && kpData.length > 1) {
+                // Poslední řádek obsahuje nejnovější Kp hodnocení
+                const lastKp = kpData[kpData.length - 1];
+                kpVal = String(lastKp[1] || "0.0");
             }
         }
 
-        // Vrácení živého JSONu
+        // Výstupní JSON v přesně požadovaném tvaru
         return res.status(200).json({
             bz: bzVal,
             speed: speedVal,
@@ -62,13 +61,7 @@ export default async function handler(req, res) {
         });
 
     } catch (error) {
-        console.error("Chyba při načítání NOAA dat:", error);
-        return res.status(500).json({ 
-            error: 'Failed to fetch aurora data',
-            bz: 0,
-            speed: 0,
-            density: 0,
-            kp: "0.0"
-        });
+        console.error("NOAA Fetch Error:", error);
+        return res.status(500).json({ error: 'Internal server error fetching NOAA data' });
     }
 }
