@@ -26,7 +26,7 @@ function showSection(e, sectionId) {
 
 async function fetchAuroraData() {
     try {
-        // Přidané t=Date.now() zabrání prohlížeči kešovat starou odpoveď API
+        // Přidané t=Date.now() zabrání prohlížeči kešovat starou odpověď API
         const response = await fetch(`/api/aurora?t=${Date.now()}`);
         if (!response.ok) throw new Error('API response failed');
         
@@ -230,27 +230,37 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     else if (kpNum >= 4) score += 20;
     else if (kpNum >= 2.5) score += 10;
 
+    // Určení barvy podle stavu
+    let activeColor = "#cbd5e0"; // Výchozí šedá pro quiet
+
     if (score >= 70 || bz <= -10) {
         statusCard.classList.add('status-masakr');
         levelEl.innerText = "🚨 AURORA MASAKR!";
-        levelEl.style.color = "#f56565";
+        activeColor = "#f56565"; // Červená
         descEl.innerText = "Strong geomagnetic storm! High probability of vivid auroras overhead.";
     } else if (score >= 40 || bz <= -4) {
         statusCard.classList.add('status-better');
         levelEl.innerText = "⚡ HIGH ACTIVITY";
-        levelEl.style.color = "#ecc94b";
+        activeColor = "#ecc94b"; // Žlutá
         descEl.innerText = "Elevated solar wind & Bz conditions. Excellent visual chance.";
     } else if (score >= 20) {
         statusCard.classList.add('status-good');
         levelEl.innerText = "🟢 MODERATE CHANCE";
-        levelEl.style.color = "#48bb78";
+        activeColor = "#48bb78"; // Zelená
         descEl.innerText = "Geomagnetic activity detected. Visible camera activity & faint arcs.";
     } else {
         statusCard.classList.add('status-quiet');
         levelEl.innerText = "QUIET CONDITIONS";
-        levelEl.style.color = "#cbd5e0";
+        activeColor = "#cbd5e0"; // Šedá
         descEl.innerText = "Geomagnetic field is quiet. Wait for solar wind speed or Bz to drop negative.";
     }
+
+    // Aplikace barvy na samotný nadpis stavu i na všechny živé hodnoty v mřížce
+    levelEl.style.color = activeColor;
+    if (bzEl) bzEl.style.color = activeColor;
+    if (speedEl) speedEl.style.color = activeColor;
+    if (densityEl) densityEl.style.color = activeColor;
+    if (kpEl) kpEl.style.color = activeColor;
 
     const lastUpdateEl = document.getElementById('lastUpdate');
     if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
