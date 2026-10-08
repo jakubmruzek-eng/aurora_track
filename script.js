@@ -26,8 +26,8 @@ function showSection(e, sectionId) {
 
 async function fetchAuroraData() {
     try {
-        // Přidané t=Date.now() zabrání prohlížeči kešovat starou odpověď API
-        const response = await fetch(`/api/aurora?t=${Date.now()}`);
+        // Volání přímo na tvé funkční Vercel API
+        const response = await fetch(`https://auroratrack-rho.vercel.app/api/aurora?t=${Date.now()}`);
         if (!response.ok) throw new Error('API response failed');
         
         const data = await response.json();
@@ -230,37 +230,36 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     else if (kpNum >= 4) score += 20;
     else if (kpNum >= 2.5) score += 10;
 
-    // Určení barvy podle stavu
-    let activeColor = "#cbd5e0"; // Výchozí šedá pro quiet
+    let activeColor = "#cbd5e0";
 
     if (score >= 70 || bz <= -10) {
         statusCard.classList.add('status-masakr');
         levelEl.innerText = "🚨 AURORA MASAKR!";
-        activeColor = "#f56565"; // Červená
+        activeColor = "#f56565";
         descEl.innerText = "Strong geomagnetic storm! High probability of vivid auroras overhead.";
     } else if (score >= 40 || bz <= -4) {
         statusCard.classList.add('status-better');
         levelEl.innerText = "⚡ HIGH ACTIVITY";
-        activeColor = "#ecc94b"; // Žlutá
+        activeColor = "#ecc94b";
         descEl.innerText = "Elevated solar wind & Bz conditions. Excellent visual chance.";
     } else if (score >= 20) {
         statusCard.classList.add('status-good');
         levelEl.innerText = "🟢 MODERATE CHANCE";
-        activeColor = "#48bb78"; // Zelená
+        activeColor = "#48bb78";
         descEl.innerText = "Geomagnetic activity detected. Visible camera activity & faint arcs.";
     } else {
         statusCard.classList.add('status-quiet');
         levelEl.innerText = "QUIET CONDITIONS";
-        activeColor = "#cbd5e0"; // Šedá
+        activeColor = "#cbd5e0";
         descEl.innerText = "Geomagnetic field is quiet. Wait for solar wind speed or Bz to drop negative.";
     }
 
-    // Aplikace barvy na samotný nadpis stavu i na všechny živé hodnoty v mřížce
-    levelEl.style.color = activeColor;
-    if (bzEl) bzEl.style.color = activeColor;
-    if (speedEl) speedEl.style.color = activeColor;
-    if (densityEl) densityEl.style.color = activeColor;
-    if (kpEl) kpEl.style.color = activeColor;
+    // Aplikace dynamické barvy na text nadpisu i na živé hodnoty
+    levelEl.style.setProperty('color', activeColor, 'important');
+    if (bzEl) bzEl.style.setProperty('color', activeColor, 'important');
+    if (speedEl) speedEl.style.setProperty('color', activeColor, 'important');
+    if (densityEl) densityEl.style.setProperty('color', activeColor, 'important');
+    if (kpEl) kpEl.style.setProperty('color', activeColor, 'important');
 
     const lastUpdateEl = document.getElementById('lastUpdate');
     if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
