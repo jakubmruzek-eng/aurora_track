@@ -31,17 +31,12 @@ async function fetchAuroraData() {
         
         const data = await response.json();
         
-        // Záchrana pro různé struktury JSONu z API
-        const bzVal = data.bz ?? data.Bz ?? data.mag?.bz ?? 0;
-        const speedVal = data.speed ?? data.windSpeed ?? data.wind?.speed ?? 0;
-        const densityVal = data.density ?? data.windDensity ?? data.wind?.density ?? 0;
-        const kpVal = data.kp ?? data.kpIndex ?? data.kp_index ?? 0;
-
+        // Přímý převod přesně z tvé JSON struktury
         updateAuroraUI({
-            bz: parseFloat(bzVal),
-            speed: parseFloat(speedVal),
-            density: parseFloat(densityVal),
-            kp: parseFloat(kpVal)
+            bz: parseFloat(data.bz),
+            speed: parseFloat(data.speed),
+            density: parseFloat(data.density),
+            kp: parseFloat(data.kp)
         });
     } catch (e) {
         console.warn('Problém s načtením API, zkusí se znovu', e);
@@ -197,7 +192,8 @@ function updateMoonPhase() {
 }
 
 function updateAuroraUI({ bz, speed, density, kp }) {
-    const formattedBz = (bz > 0 ? '+' : '') + Number(bz).toFixed(1);
+    // Přesné formátování desetin
+    const formattedBz = (bz > 0 ? '+' : '') + bz.toFixed(1);
 
     const bzEl = document.getElementById('bzVal');
     if (bzEl) bzEl.innerText = `${formattedBz} nT`;
@@ -206,10 +202,10 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     if (speedEl) speedEl.innerText = `${Math.round(speed)} km/s`;
     
     const densityEl = document.getElementById('densityVal');
-    if (densityEl) densityEl.innerText = `${Number(density).toFixed(1)} p/cm³`;
+    if (densityEl) densityEl.innerText = `${density.toFixed(1)} p/cm³`;
     
     const kpEl = document.getElementById('kpVal');
-    if (kpEl) kpEl.innerText = `${Number(kp).toFixed(1)}`;
+    if (kpEl) kpEl.innerText = `${kp.toFixed(1)}`;
 
     const statusCard = document.getElementById('statusCard');
     const levelEl = document.getElementById('activityLevel');
