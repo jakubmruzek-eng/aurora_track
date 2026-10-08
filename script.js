@@ -1,33 +1,54 @@
 const REFRESH_INTERVAL = 60000;
 
 function showSection(sectionId) {
-    // Skryje všechny sekce
     document.querySelectorAll('.page-section').forEach(sec => {
         sec.classList.remove('active');
         sec.style.display = 'none';
     });
 
-    // Zruší aktivní stav u všech odkazů v menu
     document.querySelectorAll('.nav-links li').forEach(li => {
         li.classList.remove('active');
     });
 
-    // Zobrazí zvolenou sekci
     const activeSec = document.getElementById(sectionId);
     if (activeSec) {
         activeSec.classList.add('active');
         activeSec.style.display = 'flex';
     }
 
-    // Označí správnou položku v menu
     const activeNavLi = document.getElementById(`nav-${sectionId}`);
     if (activeNavLi) {
         activeNavLi.classList.add('active');
     }
 }
 
-function fetchAuroraData() {
-    updateAuroraUI({ bz: -2.1, speed: 430, density: 4.5, kp: '3.0' });
+async function fetchAuroraData() {
+    try {
+        // Volání naší nové Vercel serverless funkce
+        const response = await fetch('/api/aurora');
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Aktualizace hlavních metrik reálnými daty z NOAA
+            updateAuroraUI({
+                bz: data.bz,
+                speed: data.speed,
+                density: data.density,
+                kp: data.kp
+            });
+
+            // Pokud máš na webu připravený element pro predikci, můžeme s ní pracovat
+            if (data.forecast) {
+                console.3denniPredikce = data.forecast;
+            }
+        } else {
+            throw new Error('API response not ok');
+        }
+    } catch (e) {
+        console.warn('Nepodařilo se načíst reálná data, použijí se záložní hodnoty', e);
+        // Fallback hodnoty, kdyby API výjimečně selhalo
+        updateAuroraUI({ bz: -2.1, speed: 430, density: 4.5, kp: '3.0' });
+    }
 
     initLocationAndWeather();
     updateMoonPhase();
@@ -40,7 +61,7 @@ function fetchAuroraData() {
         mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${timestamp}`;
     }
 
-    // 2. Sluneční skvrny / aktivní oblasti (SUVI 171)
+    // 2. Sluneční skvrny (SUVI 171)
     const sunspotsImg = document.getElementById('sunspotsImg');
     if (sunspotsImg) {
         sunspotsImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/171/latest.png?t=${timestamp}`;
@@ -220,7 +241,6 @@ function updateAuroraUI({ bz, speed, density, kp }) {
     document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
 }
 
-// Při startu aplikace vynutíme zobrazení úvodní sekce
 document.addEventListener("DOMContentLoaded", () => {
     showSection('aurora');
 });
