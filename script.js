@@ -15,18 +15,13 @@ async function fetchAuroraData() {
     try {
         let bz = 0, speed = 360, density = 3.4, kp = '2.0';
 
-        // Stahujeme aktuální data přímo ze SpaceWeatherLive API přes proxy
-        const swlUrl = 'https://www.spaceweatherlive.com/api/swl/v1/data/aurora'; // Nebo aktuální endpoint
-        // Jako jistotu použijeme kombinaci SpaceWeatherLive widget dat / NOAA přímých endpointů
-        const fallbackUrl = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json';
-        
-        // Zkusíme vytáhnout Kp a data
+        // Stahujeme nejnovější reálná data ze serverů NOAA SWPC přes proxy
         const kpRes = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')}`);
         if (kpRes.ok) {
             const kpData = await kpRes.json();
             if (Array.isArray(kpData) && kpData.length > 1) {
-                // Vezmeme nejnovější hodnotu Kp
-                kp = parseFloat(kpData[kpData.length - 1][1]).toFixed(1);
+                const lastRow = kpData[kpData.length - 1];
+                kp = parseFloat(lastRow[1]).toFixed(1);
             }
         }
 
@@ -60,7 +55,7 @@ async function fetchAuroraData() {
         updateAuroraUI({ bz, speed, density, kp });
 
     } catch (error) {
-        console.error('Chyba při stahování dat:', error);
+        console.error('Chyba při stahování živých dat:', error);
     }
 
     initLocationAndWeather();
@@ -88,17 +83,20 @@ function initLocationAndWeather() {
     const defaultLon = 25.7294;
     const defaultName = "Rovaniemi, Finland";
 
-    if (navigator.geolocation) {
+    // Ověříme podporu geolokace a zabezpečeného protokolu (HTTPS)
+    if (navigator.geolocation && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 fetchWeatherAndLocation(position.coords.latitude, position.coords.longitude);
             },
-            () => {
+            (error) => {
+                console.warn("Geolokace zamítnuta nebo nedostupná, používám výchozí Rovaniemi.", error.message);
                 fetchWeatherAndLocation(defaultLat, defaultLon, defaultName);
             },
-            { timeout: 10000 }
+            { timeout: 10000, enableHighAccuracy: false }
         );
     } else {
+        console.warn("Geolokace vyžaduje HTTPS připojení. Používám výchozí Rovaniemi.");
         fetchWeatherAndLocation(defaultLat, defaultLon, defaultName);
     }
 }
