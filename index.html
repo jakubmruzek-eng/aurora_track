@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora Tracker | Lapland Live & Forecast</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-overlay"></div>
+
+    <div class="app-layout">
+        <nav class="navbar">
+            <div class="brand">
+                <span class="logo-icon">🌌</span> AURORA TRACKER
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#aurora" onclick="showSection('aurora')">Live Status</a></li>
+                <li><a href="#forecast" onclick="showSection('forecast')">Aurora Forecast</a></li>
+                <li><a href="#weather" onclick="showSection('weather')">Weather & Clouds</a></li>
+                <li><a href="#cameras" onclick="showSection('cameras')">Live Webcams</a></li>
+            </ul>
+        </nav>
+
+        <main class="container">
+            <!-- SECTION 1: LIVE AURORA STATUS -->
+            <section id="aurora" class="page-section active">
+                <header class="header">
+                    <h1>AURORA TRACKER</h1>
+                    <p class="subtitle">Live geomagnetic data & predictions for Lapland</p>
+                </header>
+
+                <div class="status-card" id="statusCard">
+                    <h2>LIVE AURORA STATUS</h2>
+                    <div class="activity-level" id="activityLevel">Connecting...</div>
+                    <p class="activity-desc" id="activityDesc">Fetching real-time data from magnetometers and solar wind sensors...</p>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <h3>Bz Component (IMF)</h3>
+                        <div class="value" id="bzVal">-- nT</div>
+                        <span class="subtext">Negative = Optimal (South)</span>
+                    </div>
+
+                    <div class="metric-card">
+                        <h3>Solar Wind Speed</h3>
+                        <div class="value" id="speedVal">-- km/s</div>
+                        <span class="subtext">Above 400 km/s is active</span>
+                    </div>
+
+                    <div class="metric-card">
+                        <h3>Particle Density</h3>
+                        <div class="value" id="densityVal">-- p/cm³</div>
+                        <span class="subtext">Proton density in solar wind</span>
+                    </div>
+
+                    <div class="metric-card">
+                        <h3>Kp Index</h3>
+                        <div class="value" id="kpVal">--</div>
+                        <span class="subtext">Global geomagnetic activity</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: AURORA FORECAST -->
+            <section id="forecast" class="page-section">
+                <header class="header">
+                    <h1>AURORA PREDICTION & FORECAST</h1>
+                    <p class="subtitle">Short-term OVATION model & 3-day geomagnetic outlook</p>
+                </header>
+
+                <div class="forecast-card">
+                    <h3>Short-Term Oval Model (30–90 Min Lead Time)</h3>
+                    <p class="card-desc">Real-time auroral oval position provided by NOAA SWPC OVATION Model.</p>
+                    <div class="map-container">
+                        <img id="ovalMap" src="https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg" alt="NOAA Ovation Northern Hemisphere Map" />
+                    </div>
+                </div>
+
+                <div class="forecast-card" style="margin-top: 20px;">
+                    <h3>3-Day Kp Index Outlook</h3>
+                    <div class="forecast-grid" id="forecastGrid">
+                        <div class="forecast-day">
+                            <span class="day-title">Today</span>
+                            <div class="kp-badge" id="day1Kp">Kp --</div>
+                            <span class="kp-status" id="day1Status">Loading...</span>
+                        </div>
+                        <div class="forecast-day">
+                            <span class="day-title">Tomorrow</span>
+                            <div class="kp-badge" id="day2Kp">Kp --</div>
+                            <span class="kp-status" id="day2Status">Loading...</span>
+                        </div>
+                        <div class="forecast-day">
+                            <span class="day-title">Day 3</span>
+                            <div class="kp-badge" id="day3Kp">Kp --</div>
+                            <span class="kp-status" id="day3Status">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: WEATHER & CLOUDS -->
+            <section id="weather" class="page-section">
+                <header class="header">
+                    <h1>WEATHER & CLOUD COVER</h1>
+                    <p class="subtitle">Local sky visibility conditions in Lapland</p>
+                </header>
+
+                <div class="weather-grid">
+                    <div class="metric-card large">
+                        <h3>Cloud Coverage</h3>
+                        <div class="value" id="cloudVal">-- %</div>
+                        <span class="subtext" id="cloudDesc">Clear skies required to view Northern Lights</span>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Temperature</h3>
+                        <div class="value" id="tempVal">-- °C</div>
+                        <span class="subtext">Ground temperature</span>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Dew Point</h3>
+                        <div class="value" id="dewVal">-- °C</div>
+                        <span class="subtext">Lens fogging indicator</span>
+                    </div>
+                </div>
+
+                <div class="satellite-card" style="margin-top: 20px;">
+                    <h3>Live Cloud Radar / Satellite</h3>
+                    <div class="iframe-container">
+                        <iframe src="https://www.rainalarm.com/" title="Rain and Cloud Radar" frameborder="0"></iframe>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 4: LIVE WEBCAMS -->
+            <section id="cameras" class="page-section">
+                <header class="header">
+                    <h1>LIVE AURORA WEBCAM</h1>
+                    <p class="subtitle">Watch live night sky streams from Lapland</p>
+                </header>
+
+                <div class="webcam-card main-cam-card">
+                    <h3>Lapland Live Sky Stream</h3>
+                    <div class="video-container large-video">
+                        <iframe src="https://www.youtube-nocookie.com/embed/videoseries?list=PL3ZwX40d3a5xP7l30B_D45d-yq7XpG_2j" title="Lapland Live Aurora Stream" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                </div>
+
+                <div class="forecast-card hub-card" style="margin-top: 20px;">
+                    <h3>Want to explore more live camera angles?</h3>
+                    <p class="card-desc">Check out all live webcams across Rovaniemi, Levi, Saariselkä, Kilpisjärvi and Tromsø.</p>
+                    <a href="https://www.aurorawebcams.com/" target="_blank" rel="noopener noreferrer" class="cam-btn">
+                        Open AuroraWebcams.com ↗
+                    </a>
+                </div>
+            </section>
+
+            <footer class="footer">
+                <p>Last update: <span id="lastUpdate">--:--:--</span></p>
+                <p class="source">Data sourced from FMI, NOAA OVATION & Jemma.mobi</p>
+            </footer>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
