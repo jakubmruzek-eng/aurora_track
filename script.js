@@ -1,123 +1,271 @@
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("Aurora 3-Day Forecast loaded (correct layout).");
-  loadThreeDayForecast();
+const REFRESH_INTERVAL = 60000;
 
-  async function loadThreeDayForecast() {
-    const summaryEl = document.getElementById("forecast-summary");
-    const tableEl = document.getElementById("forecast-table");
-    summaryEl.innerHTML = "<p>Loading forecast...</p>";
-    tableEl.innerHTML = "";
+function showSection(e, sectionId) {
+    if (e && e.preventDefault) e.preventDefault();
 
-    try {
-      // KP forecast
-      const kpRes = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json");
-      const kpData = await kpRes.json();
-      const kpItems = kpData.slice(1, 25);
+    document.querySelectorAll('.page-section').forEach(sec => {
+        sec.classList.remove('active');
+        sec.style.display = 'none';
+    });
 
-      // Real-time solar wind data
-      const plasmaRes = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-2-hour.json");
-      const magRes = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-2-hour.json");
-      const plasmaData = await plasmaRes.json();
-      const magData = await magRes.json();
+    document.querySelectorAll('.nav-links li').forEach(li => {
+        li.classList.remove('active');
+    });
 
-      const latestPlasma = plasmaData[plasmaData.length - 1];
-      const latestMag = magData[magData.length - 1];
-
-      // ✅ správné sloupce
-      const density = parseFloat(latestPlasma[1]).toFixed(1); // p/cm³
-      const speed = parseFloat(latestPlasma[2]).toFixed(0);   // km/s
-      const bz = parseFloat(latestMag[3]).toFixed(1);          // nT
-
-      // Časy po 3 hodinách
-      const now = new Date();
-      const forecast = kpItems.map((x, i) => {
-        const time = new Date(now.getTime() + i * 3 * 60 * 60 * 1000);
-        const kp = parseFloat(x[1]);
-        return { time, kp, speed, bz, density };
-      });
-
-      const nextStorm = forecast.find(i => i.kp >= 5);
-      const chance = nextStorm ? (nextStorm.kp >= 6 ? "Very High" : "High") : "Low";
-
-      summaryEl.innerHTML = `
-        📅 <b>3-Day Aurora Forecast</b><br>
-        ⚡ Next storm: ${nextStorm ? formatTime(nextStorm.time) + " — " + getLevel(nextStorm.kp) + " (KP " + nextStorm.kp + ")" : "None"}<br>
-        🎯 Aurora chance tonight: ${chance}<br>
-        🕓 Updated: ${formatDate(now)} UTC
-      `;
-
-      // Tabulka
-      let html = `<table>
-        <tr>
-          <th>Date / Time (UTC)</th>
-          <th>KP</th>
-          <th>Level</th>
-          <th>Speed (km/s)</th>
-          <th>BZ (nT)</th>
-          <th>Density (p/cm³)</th>
-        </tr>`;
-
-      forecast.forEach(x => {
-        const level = getLevel(x.kp);
-        const color = getColor(x.kp);
-        const emoji = getEmoji(x.kp);
-        html += `<tr>
-          <td>${formatDateTime(x.time)}</td>
-          <td>${x.kp.toFixed(1)}</td>
-          <td style="color:${color}">${emoji} ${level}</td>
-          <td>${x.speed}</td>
-          <td style="color:${x.bz < 0 ? '#ef4444' : '#22c55e'}">${x.bz}</td>
-          <td>${x.density}</td>
-        </tr>`;
-      });
-
-      html += "</table>";
-      tableEl.innerHTML = html;
-
-    } catch (e) {
-      console.error(e);
-      summaryEl.textContent = "Forecast data unavailable.";
+    const activeSec = document.getElementById(sectionId);
+    if (activeSec) {
+        activeSec.classList.add('active');
+        activeSec.style.display = 'flex';
     }
-  }
 
-  // Pomocné funkce
-  function formatDateTime(d) {
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const year = d.getUTCFullYear();
-    const hour = String(d.getUTCHours()).padStart(2, "0");
-    const min = String(d.getUTCMinutes()).padStart(2, "0");
-    return `${day}.${month}.${year} ${hour}:${min}`;
-  }
+    const activeNavLi = document.getElementById(`nav-${sectionId}`);
+    if (activeNavLi) {
+        activeNavLi.classList.add('active');
+    }
+}
 
-  function formatDate(d) {
-    return d.toISOString().replace("T", " ").slice(0, 16);
-  }
+async function fetchAuroraData() {
+    try {
+        const response = await fetch(`https://auroratrack-rho.vercel.app/api/aurora?t=${Date.now()}`, {
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('API response failed');
+        
+        const data = await response.json();
+        
+        updateAuroraUI({
+            bz: parseFloat(data.bz),
+            speed: parseFloat(data.speed),
+            density: parseFloat(data.density),
+            kp: parseFloat(data.kp)
+        });
+    } catch (e) {
+        console.warn('Problém s načtením API, zkusí se znovu', e);
+    }
 
-  function formatTime(d) {
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const hour = String(d.getUTCHours()).padStart(2, "0");
-    return `${day}.${month} ${hour}:00`;
-  }
+    initLocationAndWeather();
+    updateMoonPhase();
 
-  function getLevel(kp) {
-    if (kp < 3) return "Quiet";
-    if (kp < 5) return "Active";
-    if (kp < 6) return "G1 Storm";
-    if (kp < 7) return "G2 Storm";
-    return "G3+ Storm";
-  }
-  function getColor(kp) {
-    if (kp < 3) return "#22c55e";
-    if (kp < 5) return "#eab308";
-    if (kp < 6) return "#f97316";
-    return "#ef4444";
-  }
-  function getEmoji(kp) {
-    if (kp < 3) return "🟢";
-    if (kp < 5) return "🟡";
-    if (kp < 6) return "🟠";
-    return "🔴";
-  }
+    const timestamp = Date.now();
+    const mapImg = document.getElementById('ovalMap');
+    if (mapImg) mapImg.src = `https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg?t=${timestamp}`;
+
+    const sunspotsImg = document.getElementById('sunspotsImg');
+    if (sunspotsImg) sunspotsImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/171/latest.png?t=${timestamp}`;
+
+    const coronalHolesImg = document.getElementById('coronalHolesImg');
+    if (coronalHolesImg) coronalHolesImg.src = `https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png?t=${timestamp}`;
+}
+
+function initLocationAndWeather() {
+    const defaultLat = 66.5039;
+    const defaultLon = 25.7294;
+    const defaultName = "Rovaniemi, Finland";
+
+    if (navigator.geolocation && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                fetchWeatherAndLocation(position.coords.latitude, position.coords.longitude);
+            },
+            () => {
+                fetchWeatherAndLocation(defaultLat, defaultLon, defaultName);
+            },
+            { timeout: 10000 }
+        );
+    } else {
+        fetchWeatherAndLocation(defaultLat, defaultLon, defaultName);
+    }
+}
+
+async function fetchWeatherAndLocation(lat, lon, customName = null) {
+    try {
+        let locationName = customName;
+        if (!locationName) {
+            const revRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+            if (revRes.ok) {
+                const revData = await revRes.json();
+                const city = revData.city || revData.locality || revData.principalSubdivision || "Current Location";
+                const country = revData.countryName || "";
+                locationName = country ? `${city}, ${country}` : city;
+            } else {
+                locationName = "Current GPS Location";
+            }
+        }
+
+        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,cloud_cover,wind_speed_10m&hourly=temperature_2m,cloud_cover,wind_speed_10m&forecast_days=2`);
+        if (weatherRes.ok) {
+            const data = await weatherRes.json();
+            const temp = data.current.temperature_2m;
+            const clouds = data.current.cloud_cover;
+            const wind = data.current.wind_speed_10m;
+            const humidity = data.current.relative_humidity_2m;
+
+            const dewPoint = (temp - ((100 - humidity) / 5)).toFixed(1);
+
+            const weatherEl = document.getElementById('weatherInfo');
+            if (weatherEl) weatherEl.innerHTML = `📍 ${locationName} | 🌡️ ${temp}°C | ☁️ ${clouds}% clouds | 💨 ${wind} m/s`;
+            
+            const tempEl = document.getElementById('tempVal');
+            if (tempEl) tempEl.innerText = `${temp} °C`;
+            
+            const cloudEl = document.getElementById('cloudVal');
+            if (cloudEl) cloudEl.innerText = `${clouds} %`;
+
+            const dewEl = document.getElementById('dewVal');
+            if (dewEl) dewEl.innerText = `${dewPoint} °C`;
+            
+            const yrTitleEl = document.getElementById('yrLocationTitle');
+            if (yrTitleEl) yrTitleEl.innerText = `Hourly forecast for ${locationName}`;
+
+            if (data.hourly && data.hourly.time) {
+                renderHourlyWeather(data.hourly.time, data.hourly.cloud_cover, data.hourly.temperature_2m, data.hourly.wind_speed_10m);
+            }
+        }
+    } catch (e) {
+        console.warn('Počasí nedostupné', e);
+    }
+}
+
+function renderHourlyWeather(times, clouds, temps, winds) {
+    const container = document.getElementById('yrIframe');
+    if (!container) return;
+
+    let html = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; max-height: 350px; overflow-y: auto;">`;
+    
+    const nowHour = new Date().getHours();
+    let count = 0;
+
+    for (let i = 0; i < times.length && count < 24; i++) {
+        const timeStr = times[i];
+        const hour = parseInt(timeStr.substring(11, 13));
+        const dayMatch = timeStr.substring(0, 10);
+        const todayMatch = new Date().toISOString().substring(0, 10);
+
+        if (hour >= nowHour || dayMatch !== todayMatch) {
+            const timeLabel = timeStr.substring(11, 16);
+            const cloud = clouds[i];
+            const temp = temps[i];
+            const wind = winds[i];
+
+            let cloudIcon = '☀️';
+            if (cloud > 20 && cloud <= 70) cloudIcon = '⛅';
+            else if (cloud > 70) cloudIcon = '☁️';
+
+            html += `
+                <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; text-align: center;">
+                    <div style="font-size: 0.8rem; color: #a0aec0; font-weight: 600;">${timeLabel}</div>
+                    <div style="font-size: 1.3rem; margin: 4px 0;">${cloudIcon}</div>
+                    <div style="font-size: 0.9rem; font-weight: 700; color: #fff;">${temp}°C</div>
+                    <div style="font-size: 0.75rem; color: #4ef0c6; margin-top: 2px;">☁️ ${cloud}%</div>
+                    <div style="font-size: 0.7rem; color: #a0aec0;">💨 ${wind} m/s</div>
+                </div>
+            `;
+            count++;
+        }
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+function updateMoonPhase() {
+    const d = new Date();
+    let year = d.getFullYear();
+    let month = d.getMonth() + 1;
+    const day = d.getDate();
+
+    let c = 0, e = 0, jd = 0;
+    if (month < 3) { year--; month += 12; }
+    ++month;
+    c = 365.25 * year;
+    e = 30.6 * month;
+    jd = c + e + day - 694039.0;
+    jd /= 29.53058867;
+    let phase = jd - Math.floor(jd);
+    phase = phase * 100;
+
+    let phaseName = "New Moon";
+    if (phase > 1 && phase < 49) phaseName = "Waxing Crescent";
+    else if (phase >= 49 && phase <= 51) phaseName = "First Quarter";
+    else if (phase > 51 && phase < 99) phaseName = "Waxing Gibbous";
+    else if (phase >= 99 || phase <= 1) phaseName = "Full Moon";
+    else phaseName = "Waning Crescent";
+    
+    let illumination = Math.round(phase <= 50 ? phase * 2 : (100 - phase) * 2);
+    if (illumination < 0) illumination = 0;
+
+    const moonEl = document.getElementById('moonInfo');
+    if (moonEl) {
+        moonEl.innerHTML = `🟣 ${phaseName} — ${illumination}% illuminated`;
+    }
+}
+
+function updateAuroraUI({ bz, speed, density, kp }) {
+    const formattedBz = (bz > 0 ? '+' : '') + Number(bz).toFixed(1);
+
+    const bzEl = document.getElementById('bzVal');
+    if (bzEl) bzEl.innerText = `${formattedBz} nT`;
+    
+    const speedEl = document.getElementById('speedVal');
+    if (speedEl) speedEl.innerText = `${Math.round(speed)} km/s`;
+    
+    const densityEl = document.getElementById('densityVal');
+    if (densityEl) densityEl.innerText = `${Number(density).toFixed(1)} p/cm³`;
+    
+    const kpEl = document.getElementById('kpVal');
+    if (kpEl) kpEl.innerText = `${Number(kp).toFixed(1)}`;
+
+    const statusCard = document.getElementById('statusCard');
+    const levelEl = document.getElementById('activityLevel');
+    const descEl = document.getElementById('activityDesc');
+
+    if (!statusCard || !levelEl || !descEl) return;
+
+    statusCard.className = 'status-card';
+
+    let score = 0;
+
+    if (bz <= -10) score += 40;
+    else if (bz <= -5) score += 25;
+    else if (bz <= -2) score += 15;
+    else if (bz < 0) score += 5;
+
+    if (speed >= 600) score += 30;
+    else if (speed >= 500) score += 20;
+    else if (speed >= 420) score += 10;
+
+    const kpNum = parseFloat(kp) || 0;
+    if (kpNum >= 6) score += 30;
+    else if (kpNum >= 4) score += 20;
+    else if (kpNum >= 2.5) score += 10;
+
+    if (score >= 70 || bz <= -10) {
+        statusCard.classList.add('status-masakr');
+        levelEl.innerText = "🚨 AURORA MASAKR!";
+        levelEl.style.color = "#f56565";
+        descEl.innerText = "Strong geomagnetic storm! High probability of vivid auroras overhead.";
+    } else if (score >= 40 || bz <= -4) {
+        statusCard.classList.add('status-better');
+        levelEl.innerText = "⚡ HIGH ACTIVITY";
+        levelEl.style.color = "#ecc94b";
+        descEl.innerText = "Elevated solar wind & Bz conditions. Excellent visual chance.";
+    } else if (score >= 20) {
+        statusCard.classList.add('status-good');
+        levelEl.innerText = "🟢 MODERATE CHANCE";
+        levelEl.style.color = "#48bb78";
+        descEl.innerText = "Geomagnetic activity detected. Visible camera activity & faint arcs.";
+    } else {
+        statusCard.classList.add('status-quiet');
+        levelEl.innerText = "QUIET CONDITIONS";
+        levelEl.style.color = "#cbd5e0";
+        descEl.innerText = "Geomagnetic field is quiet. Wait for solar wind speed or Bz to drop negative.";
+    }
+
+    const lastUpdateEl = document.getElementById('lastUpdate');
+    if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetchAuroraData();
 });
+
+setInterval(fetchAuroraData, REFRESH_INTERVAL);
